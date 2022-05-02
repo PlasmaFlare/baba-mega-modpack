@@ -1,0 +1,2 @@
+
+--[[ @Merge: isgone() was merged ]]
