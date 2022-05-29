@@ -9,6 +9,7 @@ local module_load_order = {
     "cutpack/word_verify",
     "this/pnoun_group_defs",
     "this/pnoun_raycast_trace",
+    "this/raycast_bank",
     "stable/stablestate",
     "stable/stabledisplay",
 }
@@ -32,6 +33,7 @@ for _, module in ipairs(module_load_order) do
 end
 print("[Plasma Modpack] Finished loading all modules")
 plasma_utils = PlasmaModules.load_module("general/utils")
+pf_raycast_bank = PlasmaModules.load_module("this/raycast_bank")
 
 --[[ 
     This module system is a start. But it is still a bit flawed if I want to maintain robustness in the long term. I don't know if that is going to be a goal

@@ -27,52 +27,27 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 	local levelmove2 = {}
 	
 	arrow_prop_mod_globals.group_arrow_properties = false
-	if (playerid == 1) then
-		levelmove = findfeature("level","is","you") or {}
-		local levelvessel = findfeature("level","is","vessel")
-		if (levelvessel ~= nil) then
-			for i,v in ipairs(levelvessel) do
-				table.insert(levelmove, v)
-			end
-		end
+	if (playerid == 1) then -- EDIT: add support for LEVEL IS VESSEL/VESSEL2
+		levelmove = ws_findLevelVessel()
 	elseif (playerid == 2) then
-		levelmove = findfeature("level","is","you2") or {}
-		local levelvessel = findfeature("level","is","vessel2")
-		if (levelvessel ~= nil) then
-			for i,v in ipairs(levelvessel) do
-				table.insert(levelmove, v)
-			end
-		end
+		levelmove = ws_findLevelVessel(2)
 		
 		if (levelmove == nil) then
-			levelmove = findfeature("level","is","you")
+			levelmove = ws_findLevelVessel()
 		end
 	elseif (playerid == 3) then
-		levelmove = findfeature("level","is","you") or {}
-		levelmove2 = findfeature("level","is","you2") or {}
-		
-		local levelvessel = findfeature("level","is","vessel")
-		if (levelvessel ~= nil) then
-			for i,v in ipairs(levelvessel) do
-				table.insert(levelmove, v)
-			end
-		end
-		local levelvessel2 = findfeature("level","is","vessel2")
-		if (levelvessel2 ~= nil) then
-			for i,v in ipairs(levelvessel2) do
-				table.insert(levelmove2, v)
-			end
-		end
+		levelmove = ws_findLevelVessel()
+		levelmove2 = ws_findLevelVessel(2)
 		
 		if (#levelmove > 0) and (dir_ ~= nil) then
 			levelmovedir = dir_
-		elseif (levelmove2 ~= nil) and (dir_ ~= nil) then
+		elseif (#levelmove2 > 0) and (dir_ ~= nil) then
 			levelmovedir = dir_
 		elseif (dir_2 ~= nil) then
 			levelmovedir = dir_2
 		end
 		
-		if (levelmove2 ~= nil) then
+		if (#levelmove2 > 0) then
 			for i,v in ipairs(levelmove2) do
 				table.insert(levelmove, v)
 			end
@@ -196,18 +171,8 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 				local empty2 = {}
 				local empty3 = {}
 				
-				arrow_prop_mod_globals.group_arrow_properties = false
-				if (playerid == 1) then
-					players,empty = findallfeature(nil,"is","you")
-					local vessels,emptyvessels = findallfeature(nil,"is","vessel")
-					if (vessels ~= nil) then
-						for i,v in ipairs(vessels) do
-							table.insert(players, v)
-						end
-						for i,v in ipairs(emptyvessels) do
-							table.insert(empty, v)
-						end
-					end
+				if (playerid == 1) then -- EDIT: add support for X/EMPTY IS VESSEL/VESSEL2
+					players,empty = ws_findVessels()
 
 					local players_tt,empty_tt = do_directional_you(dir_)
 					for i,v in ipairs(players_tt) do
@@ -216,18 +181,8 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 					for i,v in ipairs(empty_tt) do
 						table.insert(empty, v)
 					end
-
 				elseif (playerid == 2) then
-					players,empty = findallfeature(nil,"is","you2")
-					local vessels,emptyvessels = findallfeature(nil,"is","vessel2")
-					if (vessels ~= nil) then
-						for i,v in ipairs(vessels) do
-							table.insert(players, v)
-						end
-						for i,v in ipairs(emptyvessels) do
-							table.insert(empty, v)
-						end
-					end
+					players,empty = ws_findVessels(2)
 
 					local players_tt,empty_tt = do_directional_you2(dir_)
 					for i,v in ipairs(players_tt) do
@@ -238,16 +193,7 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 					end
 					
 					if (#players == 0) then
-						players,empty = findallfeature(nil,"is","you")
-						local vessels,emptyvessels = findallfeature(nil,"is","vessel")
-						if (vessels ~= nil) then
-							for i,v in ipairs(vessels) do
-								table.insert(players, v)
-							end
-							for i,v in ipairs(emptyvessels) do
-								table.insert(empty, v)
-							end
-						end
+						players,empty = ws_findVessels()
 
 						players_tt,empty_tt = do_directional_you(dir_)
 						for i,v in ipairs(players_tt) do
@@ -258,8 +204,8 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 						end
 					end
 				elseif (playerid == 3) then
-					players,empty = findallfeature(nil,"is","you")
-					players2,empty2 = findallfeature(nil,"is","you2")
+					players,empty = ws_findVessels()
+					players2,empty2 = ws_findVessels(2)
 					
 					local playersdir = {}
 					local emptydir = {}
@@ -817,31 +763,17 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 						table.insert(moving_units, {unitid = data.unitid, reason = data.reason, state = data.state, moves = data.moves, dir = newdir, xpos = unit.values[XPOS], ypos = unit.values[YPOS]})
 					end
 				else
-					table.insert(moving_units, {unitid = data.unitid, reason = data.reason, state = data.state, moves = data.moves, dir = data.dir, xpos = -1, ypos = -1})
+					-- MF_alert("Still moving: " .. tostring(data.xpos) .. ", " .. tostring(data.ypos) .. ", " .. tostring(data.moves))
+					table.insert(moving_units, {unitid = data.unitid, reason = data.reason, state = data.state, moves = data.moves, dir = data.dir, xpos = data.xpos, ypos = data.ypos})
 				end
 			end
 			
 			still_moving = {}
 		end
 		
-		local unitcount = #moving_units
-			
-		for i,data in ipairs(moving_units) do
-			if (i <= unitcount) then
-				if (data.unitid == 2) and (data.xpos == -1) and (data.ypos == -1) then
-					local positions = getemptytiles()
-					
-					for a,b in ipairs(positions) do
-						local x,y = b[1],b[2]
-						table.insert(moving_units, {unitid = 2, reason = data.reason, state = data.state, moves = data.moves, dir = data.dir, xpos = x, ypos = y})
-					end
-				end
-			else
-				break
-			end
-		end
 		add_moving_units_to_exclude_from_cut_blocking(moving_units)
 		
+		local unitcount = #moving_units
 		local done = false
 		local state = 0
 		
@@ -903,7 +835,11 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 							end
 						elseif (state == 3) then
 							if ((data.reason == "move") or (data.reason == "chill")) then
-								local newdir_ = rotate(dir)
+								local hop = hasfeature(name,"is","hop",data.unitid,x,y) -- EDIT: implement HOP for MOVE/CHILL units
+								local newdir_ = dir
+								if (hop == nil) then -- Don't rotate if the unit is HOP
+									newdir_ = rotate(dir)
+								end
 								
 								if (cantmove(name,data.unitid,newdir_,x,y) == false) then
 									dir = newdir_
@@ -1132,6 +1068,11 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 									else
 										queue_move(data.unitid,ox,oy,olddir,specials,data.reason,x,y)
 									end
+									if (data.unitid == 2) and (data.moves > 1) then
+										data.xpos = x + ox
+										data.ypos = y + oy
+										data.dir = dir
+									end
 									--move(data.unitid,ox,oy,dir,specials)
 									
 									local swapped = {}
@@ -1323,10 +1264,10 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 											for c,pushobs in ipairs(finalpushobs) do
 												pushedunits = {}
 												
-												if (pushobs ~= 2) then
-													dopush(pushobs,ox,oy,dir,false,x,y,data.reason,data.unitid)
+												if (pushobs ~= 2) then -- EDIT: pass pushables
+													dopush(pushobs,ox,oy,dir,false,x,y,data.reason,data.unitid,finalpushobs)
 												else
-													dopush(pushobs,ox,oy,dir,false,x+ox,y+oy,data.reason,data.unitid)
+													dopush(pushobs,ox,oy,dir,false,x+ox,y+oy,data.reason,data.unitid,finalpushobs)
 												end
 											end
 											result = 0
@@ -1355,8 +1296,34 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 													MF_particles("destroy",x,y,5 * pmult,0,3,1,1)
 													setsoundname("removal",1,sound)
 													data.moves = 1
+													
+													for a,b in ipairs(allobs) do -- EDIT: implement karma for WEAK moving into obstacle
+														if (b ~= 2) and (b ~= -1) and (obslist[a] >= 1) then -- Blame the solid obstacles (?)
+															ws_setKarma(b)
+														elseif (b == -1) then
+															ws_setLevelKarma()
+														end
+													end
 												end
 												solved = true
+											end
+											-- EDIT: implement HOP
+											local hop = hasfeature_count(name,"is","hop",data.unitid,x,y) + 1
+											if (hop > 1) then
+												table.insert(movelist, {data.unitid,ox*hop,oy*hop,olddir,specials,x,y})
+												if DO_HOP_PARTICLES then
+													MF_particles("poof",x,y,hop,1,4,1,1) -- Spawn particles when hopping
+												end
+												result_checked = true -- ???
+											end
+									
+											local swaps = findfeatureat(nil,"is","swap",x+ox*hop,y+oy*hop,{"still"}) -- Swap when landing
+											if (swaps ~= nil) then
+												for a,b in ipairs(swaps) do
+													if (b ~= 2) then
+														addaction(b,{"update",x,y,nil})
+													end
+												end
 											end
 										end
 									end
@@ -1383,38 +1350,33 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 						data.state = 10
 					end
 					
-					--[[
-					local tunit = mmf.newObject(data.unitid)
-					
-					MF_alert(tunit.strings[UNITNAME] .. " (" .. tostring(data.unitid) .. ") is solved, " .. data.reason .. ", take " .. tostring(take) .. ", state " .. tostring(data.state) .. ", moves " .. tostring(data.moves))
-					]]--
+					-- MF_alert("(" .. tostring(data.unitid) .. ") solved, " .. data.reason .. ", t " .. tostring(take) .. ", s " .. tostring(data.state) .. ", m " .. tostring(data.moves) .. ", " .. tostring(data.xpos) .. ", " .. tostring(data.ypos))
 					
 					if (data.moves == 0) then
 						--MF_alert(tunit.strings[UNITNAME] .. " - removed from queue")
 						table.insert(delete_moving_units, i)
 					else
-						if (data.unitid ~= 2) or ((data.unitid == 2) and (data.xpos == -1) and (data.ypos == -1)) then
-							if enable_directional_shift then
-								--@Turning Text(shift)
-								table.insert(still_moving, {
-									unitid = data.unitid, 
-									reason = data.reason, 
-									state = data.state, 
-									moves = data.moves, 
-									dir = data.dir, 
-									xpos = data.xpos, 
-									ypos = data.ypos,
+						if enable_directional_shift then
+							--@Turning Text(shift)
+							table.insert(still_moving, {
+								unitid = data.unitid, 
+								reason = data.reason, 
+								state = data.state, 
+								moves = data.moves, 
+								dir = data.dir, 
+								xpos = data.xpos, 
+								ypos = data.ypos,
 
-									horsdir = data.horsdir,
-									vertdir = data.vertdir,
-									horsmove = data.horsmove,
-									vertmove = data.vertmove,
-									dirshiftstate = data.dirshiftstate
-								})
-							else
-								table.insert(still_moving, {unitid = data.unitid, reason = data.reason, state = data.state, moves = data.moves, dir = data.dir, xpos = data.xpos, ypos = data.ypos})
-							end
+								horsdir = data.horsdir,
+								vertdir = data.vertdir,
+								horsmove = data.horsmove,
+								vertmove = data.vertmove,
+								dirshiftstate = data.dirshiftstate
+							})
+						else
+							table.insert(still_moving, {unitid = data.unitid, reason = data.reason, state = data.state, moves = data.moves, dir = data.dir, xpos = data.xpos, ypos = data.ypos})
 						end
+						
 						--MF_alert(tunit.strings[UNITNAME] .. " - removed from queue")
 						table.insert(delete_moving_units, i)
 					end
@@ -1676,7 +1638,7 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 	if (#units > 0) and (no3d == false) then
 		local vistest,vt2 = findallfeature(nil,"is","3d",true)
 		if (#vistest > 0) or (#vt2 > 0) then
-			local target = vistest[1] or vt[1]
+			local target = vistest[1] or vt2[1] or vess3d[1] or evess3d[1]
 			visionmode(1)
 		elseif (spritedata.values[VISION] == 1) then
 			local vistest2 = findfeature(nil,"is","3d")
@@ -1784,6 +1746,11 @@ function move(unitid,ox,oy,dir,specials_,instant_,simulate_,x_,y_)
 						if effect1 or effect2 then
 							local pmult,sound = checkeffecthistory("unlock")
 							soundshort = sound
+							if issafe(unitid,x,y) and (b ~= 2) and (unitid ~= 2) then -- EDIT: set karma for OPEN/SHUT
+								ws_setKarma(unitid)
+							elseif issafe(b,bx,by) and (b ~= 2) and (unitid ~= 2) then
+								ws_setKarma(b)
+							end
 						end
 						
 						if effect1 then
@@ -1800,7 +1767,10 @@ function move(unitid,ox,oy,dir,specials_,instant_,simulate_,x_,y_)
 					if unlocked then
 						setsoundname("turn",7,soundshort)
 					end
-				elseif (reason == "eat") then
+				elseif (reason == "eat") then -- EDIT: add karma for EAT
+					if (b ~= 2) and (unitid ~= 2) then
+						ws_setKarma(unitid)
+					end
 					local pmult,sound = checkeffecthistory("eat")
 					MF_particles("eat",bx,by,10 * pmult,0,3,1,1)
 					generaldata.values[SHAKE] = 3
@@ -2398,7 +2368,7 @@ function check(unitid,x,y,dir,pulling_,reason,ox,oy)
 	return result,results,specials
 end
 
-function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
+function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky,allPushables_)
 	--[[ 
 		@mods(turning text) - Override Reason - handle directional swap
 		@mods(text splicing) - Override Reason - use of globals to give more context for check_text_packing() and therefore check() (see global definitions in ts_text_splicing.lua)
@@ -2407,6 +2377,7 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 			- Note: is there a way to not rely on these globals? These can be passed as parameters
 					to check() but we risk Hempuli deciding to change the function definition and
 					us having to refactor. 
+		@mods(word salad) - add "allPushables_" to keep track of ALL the objects that are being pushed
 	 ]]
 	local pid2 = tostring(ox + oy * roomsizex) .. tostring(unitid)
 	pushedunits[pid2] = 1
@@ -2442,6 +2413,8 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 	if (pulling_ ~= nil) then
 		pulling = pulling_
 	end
+
+	local allPushables = allPushables_ or {} -- EDIT: add allPushables variable
 	
 	--sticky check! sticky things are pushed or pulled as a whole unit. and if we got this far, it succeeded.
 	if (is_sticky ~= true and name ~= empty and featureindex["sticky"] ~= nil and hasfeature(name,"is","sticky",unitid)) then
@@ -2452,7 +2425,7 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 			--everything on the push-front pushes, everything else JUST moves. otherwise it infinite loops lmao
 			for _,u in ipairs(pushers) do
 				pushers[u] = true
-				result = math.max(result, dopush(u,ox,oy,dir,pulling_,x_,y_,reason,pusherid,true));
+				result = math.max(result, dopush(u,ox,oy,dir,pulling_,x_,y_,reason,pusherid,true,allPushables));
 			end
 			for _,u in ipairs(units) do
 				if pushers[u] == nil then
@@ -2621,6 +2594,9 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 		local result = 0
 		
 		local weak = hasfeature(name,"is","weak",unitid,x_,y_)
+		local hop = hasfeature_count(name,"is","hop",unitid,x_,y_) + 1 -- EDIT: get amount of HOP of the pushable
+		
+		local nextPushables = {} -- EDIT: get the pushables in the next tile
 		
 		if (movedata.result == 0) then
 			for i,obs in pairs(hmlist) do
@@ -2646,6 +2622,9 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 						else
 							result = math.max(0, result)
 							done = true
+						end
+						if (obs > 2) then -- EMPTY is handled in a different way
+							table.insert(nextPushables, obs)
 						end
 					end
 				end
@@ -2696,7 +2675,7 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 							
 							if (pulling == false) or (pulling and (hms[i] ~= pusherid)) and (pushedunits[pid] == nil) then
 								pushedunits[pid] = 1
-								hm = dopush(v,ox,oy,dir,false,x+ox,y+oy,reason,unitid)
+								hm = dopush(v,ox,oy,dir,false,x+ox,y+oy,reason,unitid,nextPushables) -- EDIT: pass the next pushables
 							end
 						end
 					end
@@ -2723,6 +2702,42 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 					MF_particles("destroy",x,y,5 * pmult,0,3,1,1)
 					result = 0
 					hm = 0
+					
+					for a,b in ipairs(hms) do -- EDIT: add karma to obstacles
+						if (b ~= 2) and (b ~= -1) and (hmlist[a] >= 1) then
+							ws_setKarma(b)
+						elseif (b == -1) then
+							ws_setLevelKarma()
+						end
+					end
+				elseif (hop > 1) then -- EDIT: implement HOP for pushables (WEAK has higher priority than HOP)
+					local canActuallyHop = true -- A pushable that is HOP can't jump if it's on a pushable that isn't HOP
+					for _,b in ipairs(allPushables) do
+						local anotherPushable = mmf.newObject(b)
+						local apName = getname(anotherPushable)
+						local canPushableHop = hasfeature(apName,"is","hop",b,x,y)
+						if not canPushableHop then
+							canActuallyHop = false
+							break
+						end
+					end
+					if canActuallyHop then
+						table.insert(movelist, {unitid,ox*hop,oy*hop,dir,specials,x,y})
+						if DO_HOP_PARTICLES then
+							MF_particles("poof",x,y,hop,1,4,1,1) -- Spawn particles when hopping
+						end
+						
+						local swaps = findfeatureat(nil,"is","swap",x+ox*hop,y+oy*hop,{"still"}) -- Swap when landing
+						if (swaps ~= nil) then
+							for a,b in ipairs(swaps) do
+								if (b ~= 2) then
+									addaction(b,{"update",x,y,nil})
+								end
+							end
+						end
+						result = 0
+						hm = 0
+					end
 				end
 				
 				finaldone = true
@@ -2826,6 +2841,7 @@ function trypush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 	end
 	
 	local weak = hasfeature(name,"is","weak",unitid,x_,y_)
+	local hop = hasfeature_count(name,"is","hop",unitid,x_,y_) + 1 -- EDIT: get HOP amount of the pushable unit
 	
 	local pushername = "empty";
 	if (pusherid > 2) then
@@ -2851,7 +2867,11 @@ function trypush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 						done = true
 					elseif (hm == 1) or (hm == -1) then
 						if (pulling == false) or (pulling and (hms[i] ~= pusherid)) then
-							result = math.max(1, result)
+							if (hop > 1) then -- EDIT: if the unit can HOP, it's considered pushable
+								result = math.max(0, result)
+							else
+								result = math.max(1, result)
+							end
 							done = true
 						else
 							result = math.max(0, result)
@@ -2882,6 +2902,7 @@ end
 function add_moving_units(rule,newdata,data,been_seen,empty_)
 	local result = data
 	local seen = been_seen
+	local emptyseen = {}
 	local empty = empty_ or {}
 	
 	for i,v in ipairs(newdata) do
@@ -2942,7 +2963,12 @@ function add_moving_units(rule,newdata,data,been_seen,empty_)
 		end
 		
 		if (sleeping == false) then
-			if (seen[v] == nil) then
+			local seencode = v
+			if (v == 2) then
+				seencode = i * 1000 + v
+			end
+			
+			if (seen[seencode] == nil) then
 				local dir_ = 4
 				
 				local x,y = -1,-1
@@ -2951,7 +2977,7 @@ function add_moving_units(rule,newdata,data,been_seen,empty_)
 					x,y = unit.values[XPOS],unit.values[YPOS]
 					
 					table.insert(result, {unitid = v, reason = rule, state = 0, moves = 1, dir = dir_, xpos = x, ypos = y})
-					seen[v] = #result
+					seen[seencode] = #result
 				else
 					local thisempty = empty[i]
 				
@@ -2962,13 +2988,26 @@ function add_moving_units(rule,newdata,data,been_seen,empty_)
 						dir_ = emptydir(x,y)
 						
 						table.insert(result, {unitid = 2, reason = rule, state = 0, moves = 1, dir = dir_, xpos = x, ypos = y})
-						seen[v] = #result
+						seen[seencode] = #result
+						
+						if (emptyseen[seencode] == nil) then
+							emptyseen[seencode] = {}
+						end
+						
+						table.insert(emptyseen[seencode], #result)
 					end
 				end
 			else
-				local id = seen[v]
+				if (v ~= 2) then
+					local id = seen[seencode]
 				local this = result[id]
 				this.moves = this.moves + 1
+				elseif (emptyseen[seencode] ~= nil) then
+					for a,b in ipairs(emptyseen[seencode]) do
+						local this = result[b]
+						this.moves = this.moves + 1
+					end
+				end
 			end
 		end
 	end

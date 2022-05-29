@@ -1,9 +1,9 @@
 local utils = {}
-local enable_asserts = true
+local DEBUG_TEST = false
 
 utils = {
     debug_assert = function(expr, err_msg)
-        if enable_asserts then
+        if DEBUG_TEST then
             if not expr then
                 if not err_msg then
                     err_msg = ""
@@ -13,24 +13,47 @@ utils = {
         end
     end,
 
+    debug_error = function(error_msg)
+        if DEBUG_TEST then
+            error(error_msg.." "..debug.traceback())
+        else
+            error(error_msg)
+        end
+    end,
+
+    try_call = function(func, ...)
+        local status, err = pcall(func, ...)
+        if not status then
+            local callinfo = debug.getinfo(2)
+            timedmessage("[Plasma Error: Please report this!].")
+            timedmessage("[File]: "..callinfo.short_src, 0, 1)
+            timedmessage("[Line]: "..tostring(callinfo.currentline), 0, 2)
+            if DEBUG_TEST then
+                print(err)
+                print(debug.traceback())
+            end
+        end
+
+        return status
+    end,
+
     make_object = function(unitid, x, y)
+        if not unitid then utils.debug_error("Provided nil unitid") end
         if unitid == 2 then
-            utils.debug_assert(unitid)
-            utils.debug_assert(x)
-            utils.debug_assert(y)
+            if not x then utils.debug_error("Provided nil x coord for empty object") end
+            if not y then utils.debug_error("Provided nil y coord for empty object") end
             return -(200 + x + y * roomsizex) -- JAAAAAAANK
         elseif unitid == 1 then
             return -1
         else
             local unit = mmf.newObject(unitid)
-            utils.debug_assert(unit, tostring(unitid))
+            if not unit then utils.debug_error("Invalid unit for unitid "..tostring(unitid)) end
             return unit.values[ID]
-            -- return unitid
         end
     end,
 
     parse_object = function(object)
-        utils.debug_assert(object)
+        if not object then utils.debug_error("Provided nil object") end
         if object <= -200 then
             local tileid = (-object) - 200
             local x = tileid % roomsizex
@@ -39,13 +62,74 @@ utils = {
         elseif object == -1 then
             return 1
         else
-            -- local unit = mmf.newObject(object)
             local unitid = MF_getfixed(object)
-            utils.debug_assert(unitid, "Cannot find unitid of object: "..tostring(object))
+            if not unitid then utils.debug_error("Cannot find unitid of object: "..tostring(object)) end
+
             local unit = mmf.newObject(unitid)
-            utils.debug_assert(unit, "Cannot find unit of object: "..tostring(object))
+            if not unit then utils.debug_error("Cannot find unit of object: "..tostring(object)) end
 
             return unitid, unit.values[XPOS], unit.values[YPOS], unit.values[XPOS] + unit.values[YPOS] * roomsizex
+        end
+    end,
+
+    parse_object_full = function(object)
+        if not object then utils.debug_error("Provided nil object") end
+        if object <= -200 then
+            local tileid = (-object) - 200
+            local x = tileid % roomsizex
+            local y = math.floor(tileid / roomsizex)
+            return {
+                unitid = 2,
+                name = "empty",
+                x = x,
+                y = y,
+                tileid = tileid,
+                unittype = "object",
+                texttype = 0
+            }
+        elseif object == -1 then
+            return {
+                unitid = 1,
+                name = "level",
+                x = 0,
+                y = 0,
+                tileid = 0,
+                unittype = "object",
+                texttype = 0
+            }
+        else
+            local unitid = MF_getfixed(object)
+            if not unitid then utils.debug_error("Cannot find unitid of object: "..tostring(object)) end
+
+            local unit = mmf.newObject(unitid)
+            if not unit then utils.debug_error("Cannot find unit of object: "..tostring(object)) end
+
+            return {
+                unitid = unitid,
+                name = unit.strings[NAME],
+                x = unit.values[XPOS],
+                y = unit.values[YPOS],
+                tileid = unit.values[XPOS] + unit.values[YPOS] * roomsizex,
+                unittype = unit.strings[UNITTYPE],
+                texttype = unit.values[TYPE]
+            }
+        end
+    end,
+
+    object_exists = function(object)
+        if not object then return false end
+        if object <= -200 then
+            return true
+        elseif object == -1 then
+            return true
+        else
+            local unitid = MF_getfixed(object)
+            if not unitid then return false end
+
+            local unit = mmf.newObject(unitid)
+            if not unit then return false end
+            
+            return true
         end
     end,
 
@@ -63,7 +147,7 @@ utils = {
 
     unitstring = function(unitid)
         local unit = mmf.newObject(unitid)
-        utils.debug_assert(unit)
+        if not unit then utils.debug_error("Provided invalid unitid: "..tostring(unitid)) end
 
         return utils.objectstring(utils.make_object(unitid, unit.values[XPOS], unit.values[YPOS]))
     end,

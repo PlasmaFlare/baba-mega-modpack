@@ -65,12 +65,14 @@ function command(key,player_,keyid,keyid2)
 				and featureindex["you2left"] == nil 
 				and featureindex["you2up"] == nil 
 				and featureindex["you2down"] == nil 
-				and featureindex["vessel2"] == nil
+				and featureindex["vessel2"] == nil -- Added check for VESSEL2 here
 				then
 				auto_dir[1] = keyid
 			end
 		end
-		if doreset then
+		--@mods(past x patashu) - if we hit a reset object during a past replay, don't handle reset here. Handle it in
+		--the past mod. Need to do so since it uses the "always" modhook
+		if doreset and not doingpast then
 			resetlevel()
 			MF_update()
 		else
@@ -146,7 +148,7 @@ function setunitmap()
 	
 	for i,unit in ipairs(delthese) do
 		local x,y,dir,unitname = unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.strings[UNITNAME]
-		addundo({"remove",unitname,x,y,dir,unit.values[ID],unit.values[ID],unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.values[VISUALLEVEL],unit.values[COMPLETED],unit.values[VISUALSTYLE],unit.flags[MAPLEVEL],unit.strings[COLOUR],unit.strings[CLEARCOLOUR],unit.followed,unit.back_init,unit.originalname,unit.strings[UNITSIGNTEXT],false,unit.fixed})
+		addundo({"remove",unitname,x,y,dir,unit.values[ID],unit.values[ID],unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.values[VISUALLEVEL],unit.values[COMPLETED],unit.values[VISUALSTYLE],unit.flags[MAPLEVEL],unit.strings[COLOUR],unit.strings[CLEARCOLOUR],unit.followed,unit.back_init,unit.originalname,unit.strings[UNITSIGNTEXT],false,unit.fixed,unit.karma}) -- EDIT: keep karma after undoing
 		delunit(unit.fixed)
 		MF_remove(unit.fixed)
 	end

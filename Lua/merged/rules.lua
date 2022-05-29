@@ -1,5 +1,3 @@
-
-
 function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 	--[[ 
 		@mods(turning text) - Override reason: provide a hook to reinterpret turning text names based on their direction
@@ -203,8 +201,8 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 							table.insert(sents[step], v)
 							maxw = math.max(maxw, v[2])
 
-							if (currw == 0) then
-								currw = v[2]
+							if (v[2] > 1) then
+								currw = math.max(currw, v[2] + 1)
 							end
 						end	
 					else
@@ -214,14 +212,12 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 						table.insert(sents[step], v)
 						maxw = math.max(maxw, v[2])
 
-						if (currw == 0) then
-							currw = v[2]
+						if (v[2] > 1) then
+							currw = math.max(currw, v[2] + 1)
 						end
 					end
 				end
 				
-				currw = math.max(currw - 1, 0)
-
 				if (sharedtype >= 0) and (prevsharedtype >= 0) and (#words > 0) and (maxw == 1) and (prevmaxw == 1) and (currw == 0) and not br_calling_calculatesentences_branch then
 					if ((sharedtype == 0) and (prevsharedtype == 0)) or ((sharedtype == 1) and (prevsharedtype == 1)) or ((sharedtype == 2) and (prevsharedtype == 2)) or ((sharedtype == 0) and (prevsharedtype == 2)) then
 						done = true
@@ -231,6 +227,8 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 					end
 				end
 
+				currw = math.max(currw - 1, 0)
+				
 				prevsharedtype = sharedtype
 				prevmaxw = maxw
 				
@@ -866,6 +864,10 @@ function docode(firstwords)
 							local tileid = s[3][1]
 							local tilewidth = s[4]
 							
+							if (string.sub(tilename, 1, 10) == "text_text_") then
+								tilename = string.sub(tilename, 6)
+							end
+							
 							local wordtile = false
 							
 							currtiletype = tiletype
@@ -1310,8 +1312,15 @@ function docode(firstwords)
 									end
 									
 									if (allowed == false) then
+										local wname_pnoun = is_name_text_this(wname)
 										for a,b in ipairs(allowedwords_extra) do
 											if (wname == b) then
+												allowed = true
+												break
+											end
+
+											-- @mods(THIS) - need to use is_name_text_this() to account for "this" being a prefix for all pnouns
+											if wname_pnoun and wname_pnoun == is_name_text_this(b) then
 												allowed = true
 												break
 											end
@@ -1386,6 +1395,7 @@ function docode(firstwords)
 										else
 											if (wtype == 1) then
 												allowedwords = argtype
+												allowedwords_extra = argextra --@mods(this) - needed for special cases of pnoun parsing
 												
 												stage = 1
 												local target = {prefix .. wname, wtype, wid}
@@ -1396,6 +1406,7 @@ function docode(firstwords)
 												newcondgroup = 1
 											elseif (wtype == 3) then
 												allowedwords = {0}
+												allowedwords_extra = argextra
 												local cond = {prefix .. wname, wtype, wid}
 												table.insert(group_conds, {cond, {}})
 											elseif (wtype == 7) then
@@ -1660,12 +1671,12 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 							local alreadyused = {}
 							
 							local this_param_name, this_param_id = parse_this_param(b)
-							if this_param_name and not is_this_unit_in_stablerule(this_param_id) then
+							if this_param_name and not pf_raycast_bank:is_valid_ray_id(this_param_id) then
 								local this_unitid = this_params_in_conds[cond][a]
 
 								local is_param_this_formatted,_,_,_,this_param_id = parse_this_param_and_get_raycast_units(b)
-								if not is_param_this_formatted and not is_this_unit_in_stablerule(this_param_id) then
-									register_pnoun_in_cond(this_unitid)
+								if not is_param_this_formatted and not pf_raycast_bank:is_valid_ray_id(this_param_id) then
+									register_pnoun_in_cond(this_unitid, condname)
 									local param_id = convert_this_unit_to_param_id(this_unitid)
 									table.insert(newconds, make_this_param(b, param_id))
 								else

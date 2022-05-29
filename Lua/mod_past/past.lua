@@ -30,18 +30,10 @@ editor_objlist["text_past"] = {
 
 formatobjlist()
 
---[[ 
-	doing past, normal
-	T T T
-	T F F
-	F T F
-	F F T
- ]]
-
 --[[ Adds the rules for the past condition, it is true if we are running the past rules
 This allows Not Past to function ]]--
 condlist["past"] = function(params,checkedconds,checkedconds_,cdata)
-	local result = doingpast == (not cdata.notcond)
+	local result = doingpast == true
 	return result, checkedconds
 end
 
@@ -301,7 +293,12 @@ function dopast()
 	if doingpast then
     updatecode = 1
     if toredo[1] ~= nil and not runpast then
-      table.remove(toredo,1)
+      if doreset then
+        --@mods(past x patashu) - if we hit a reset object during a past replay, stop the replay by clearing toredo
+        toredo = {}
+      else
+        table.remove(toredo,1)
+      end
     end
     if toredo[1] == nil then
       MF_letterclear("pasttime")
@@ -352,12 +349,20 @@ table.insert( mod_hook_functions["always"],
             startpoint = 1
             table.remove(undobuffer,1)
             generaldata.values[IGNORE] = 0
-            updateundo = true
-            doundo = true
-            for id,unit in pairs(units) do
-              addundo({"create",unit.strings[UNITNAME],unit.values[ID],-1,"create",unit.values[XPOS],unit.values[YPOS],unit.values[DIR]})
+
+            if doreset then
+              --@mods(past x patashu) - if we hit a reset object during a past replay, reset the level like how patashu
+              -- does it instead of doing other undo stuff with past
+              resetlevel()
+              MF_update()
+            else
+              updateundo = true
+              doundo = true
+              for id,unit in pairs(units) do
+                addundo({"create",unit.strings[UNITNAME],unit.values[ID],-1,"create",unit.values[XPOS],unit.values[YPOS],unit.values[DIR]})
+              end
+              newundo()
             end
-            newundo()
           end
         else
           for i=1,#undobuffer - startpoint do

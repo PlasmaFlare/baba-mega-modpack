@@ -48,10 +48,12 @@ local function make_plasma_button(buttonfunc, name, buttonid, label, x, y, selec
 end
 
 local function display_modpack_setting_button()
-    local buttonstring = "Plasma Modpack Settings"
-    local x = screenw-( (#buttonstring + 5) * baba_font_consts.total_letter_w)
-    local y = f_tilesize * 1.5
-    make_plasma_button("pfsettings", "level", menufuncs.level.button, buttonstring, x, y, false)
+    if generaldata.values[MODE] == 5 then --"So it doesn't run when you start the pack outside of the editor" - Thanks metatext mod!
+        local buttonstring = "Plasma Modpack Settings"
+        local x = screenw-( (#buttonstring + 5) * baba_font_consts.total_letter_w)
+        local y = f_tilesize * 1.5
+        make_plasma_button("pfsettings", "level", menufuncs.level.button, buttonstring, x, y, false)
+    end
 end
 
 local old_level_func = menufuncs.level.enter

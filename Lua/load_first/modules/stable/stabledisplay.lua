@@ -1,4 +1,5 @@
 local utils = PlasmaModules.load_module("general/utils")
+local RaycastBank = PlasmaModules.load_module("this/raycast_bank")
 
 local StableDisplay = {
     stable_indicators = {},
@@ -175,7 +176,7 @@ function StableDisplay:write_stable_rules(obj_list, x, y, empty_tileid)
         list_width = math.max(list_width, LETTER_WIDTH * #display + LETTER_SPACING * (#display - 1))
 
         for _, stable_this_id in ipairs(self.stablestate.rules[ruleid].stable_this_ids) do
-            for ray_object in pairs(get_stable_this_raycast_units(stable_this_id)) do
+            for ray_object in pairs(RaycastBank:get_raycast_objects(stable_this_id)) do
                 local ray_unitid, x, y = utils.parse_object(ray_object)
                 local ind_x, ind_y
                 local indicator_id

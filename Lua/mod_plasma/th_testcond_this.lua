@@ -1,4 +1,5 @@
 local plasma_utils = PlasmaModules.load_module("general/utils")
+local RaycastBank = PlasmaModules.load_module("this/raycast_bank")
 
 function get_this_parms_in_conds(conds, ids)
     local id_index = 4 -- start at 4 since 1-3 ids is target, verb, property
@@ -31,7 +32,7 @@ function get_this_parms_in_conds(conds, ids)
                         param = string.sub(param, 5)
                     end
                     local this_param_name, this_param_id = parse_this_param(param)
-                    if this_param_name and not is_this_unit_in_stablerule(this_param_id) then
+                    if this_param_name and not RaycastBank:is_valid_ray_id(this_param_id) then
                         local this_unitid = ids[id_index][1]
                         if not conds_with_this_as_param[cond] then
                             conds_with_this_as_param[cond] = {}
@@ -105,6 +106,17 @@ function parse_this_param_and_get_raycast_units(this_param)
     end
 
     return this_param_name, out, tileids, count, this_unitid
+end
+
+function parse_this_param_and_get_raycast_infix_units(this_param, infix)
+    local this_param_name, param_id = parse_this_param(this_param)
+    local this_unitid = parse_this_unit_from_param_id(param_id)
+    if not this_unitid then
+        return {}, {}
+    end
+    
+    local raycast_objects, found_letterwords = get_raycast_infix_units(this_unitid, infix)
+    return raycast_objects, found_letterwords
 end
 
 local function get_singlular_unitid_from_rule(idgroup, include_letters)
@@ -207,7 +219,7 @@ function parse_this_unit_from_param_id(this_param_id)
         return nil
     end
 
-    if not is_this_unit_in_stablerule(this_unitid) then
+    if not RaycastBank:is_valid_ray_id(this_unitid) then
         this_unitid = MF_getfixed(this_unitid)
     end
 

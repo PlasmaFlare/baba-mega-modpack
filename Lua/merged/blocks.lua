@@ -328,7 +328,7 @@ function moveblock(onlystartblock_)
 									end
 								end
 								
-								addundo({"remove",unit.strings[UNITNAME],unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID],unit.values[ID],unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.values[VISUALLEVEL],unit.values[COMPLETED],unit.values[VISUALSTYLE],unit.flags[MAPLEVEL],unit.strings[COLOUR],unit.strings[CLEARCOLOUR],unit.followed,unit.back_init,unit.originalname,unit.strings[UNITSIGNTEXT],false,unitid})
+								addundo({"remove",unit.strings[UNITNAME],unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID],unit.values[ID],unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.values[VISUALLEVEL],unit.values[COMPLETED],unit.values[VISUALSTYLE],unit.flags[MAPLEVEL],unit.strings[COLOUR],unit.strings[CLEARCOLOUR],unit.followed,unit.back_init,unit.originalname,unit.strings[UNITSIGNTEXT],false,unitid,unit.karma})
 								
 								for a,b in ipairs(delname) do
 									MF_alert("added undo for " .. b[1] .. " with ID " .. tostring(b[2]))
@@ -516,7 +516,7 @@ function block(small_)
 				end
 				
 				if (ufloat ~= 2) and (ded == false) then
-					addundo({"done",unit.strings[UNITNAME],unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID],unit.fixed,ufloat})
+					addundo({"done",unit.strings[UNITNAME],unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID],unit.fixed,ufloat,unit.originalname})
 				end
 				
 				delunit(unit.fixed)
@@ -602,6 +602,21 @@ function block(small_)
 	end
 	arrow_prop_mod_globals.group_arrow_properties = true
 
+	
+	local iskarma = getunitswitheffect("karma",false,delthese) -- EDIT: Destroy units by KARMA
+	for id,unit in ipairs(iskarma) do
+		if unit.karma and (issafe(unit.fixed) == false) then
+			local x,y = unit.values[XPOS],unit.values[YPOS]
+			local pmult,sound = checkeffecthistory("karma")
+			MF_particles("unlock",x,y,5 * pmult,2,2,1,1)
+			removalshort = sound
+			removalsound = 1
+			generaldata.values[SHAKE] = 4
+			table.insert(delthese, unit.fixed)
+		end
+	end
+	
+	delthese,doremovalsound = handledels(delthese,doremovalsound,true)
 	
 	local isplay = getunitswithverb("play",delthese)
 	
@@ -714,6 +729,9 @@ function block(small_)
 								
 								if (safe1 == false) then
 									table.insert(delthese, b)
+									if safe2 then -- EDIT: implement karma for SINK
+										delthese,removalshort,removalsound = ws_karma(x,y,"sink",b,delthese,removalshort,removalsound)
+									end
 								end
 								
 								local pmult,sound = checkeffecthistory("sink")
@@ -724,6 +742,9 @@ function block(small_)
 								
 								if (b ~= unit.fixed) and (safe2 == false) then
 									sunk = true
+									if safe1 then -- EDIT: implement karma for SINK
+										delthese,removalshort,removalsound = ws_karma(x,y,"sink2",unit.fixed,delthese,removalshort,removalsound)
+									end
 								end
 							end
 						end
@@ -844,7 +865,7 @@ function block(small_)
 				if (#water > 0) then
 					for e,f in ipairs(water) do
 						if floating(f,unit.fixed,x,y) then
-							if (f ~= unit.fixed) then
+							if (f ~= unit.fixed) then -- EDIT: set KARMA for BOOM objects (can the code be better? probably)
 								local doboom = true
 								
 								for c,d in ipairs(delthese) do
@@ -853,6 +874,10 @@ function block(small_)
 									elseif (d == unit.fixed) then
 										sunk = false
 									end
+								end
+								
+								if (sunk == false) and (issafe(f) == false) then
+									ws_setKarma(unit.fixed)
 								end
 								
 								if doboom and (issafe(f) == false) then
@@ -924,6 +949,7 @@ function block(small_)
 							removalsound = 1
 							generaldata.values[SHAKE] = 4
 							table.insert(delthese, unit.fixed)
+							delthese,removalshort,removalsound = ws_karma(x,y,"weak",unit.fixed,delthese,removalshort,removalsound) -- EDIT: implement karma for WEAK overlap
 							break
 						end
 					end
@@ -953,6 +979,7 @@ function block(small_)
 							removalshort = sound
 							removalsound = 9
 							table.insert(delthese, unit.fixed)
+							delthese,removalshort,removalsound = ws_karma(x,y,"melt",unit.fixed,delthese,removalshort,removalsound) -- EDIT: implement karma for MELT
 							break
 						end
 					end
@@ -992,7 +1019,7 @@ function block(small_)
 	local isyou = getunitswitheffect("you",false,delthese)
 	local isyou2 = getunitswitheffect("you2",false,delthese)
 	local isyou3 = getunitswitheffect("3d",false,delthese)
-	local isyou4 = getunitswitheffect("alive",false,delthese)
+	local isyou4 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
 	
 	for i,v in ipairs(isyou2) do
 		table.insert(isyou, v)
@@ -1042,6 +1069,7 @@ function block(small_)
 								removalshort = sound
 								removalsound = 1
 								table.insert(delthese, unit.fixed)
+								delthese,removalshort,removalsound = ws_karma(x,y,"defeat",unit.fixed,delthese,removalshort,removalsound) -- EDIT: implement karma for DEFEAT
 							end
 						end
 					end
@@ -1101,18 +1129,25 @@ function block(small_)
 				
 				if (#key > 0) then
 					local doparts = false
-					for a,b in ipairs(key) do
+					for a,b in ipairs(key) do -- EDIT: add KARMA for OPEN/SHUT
 						if (b ~= 0) and floating(b,unit.fixed,x,y) then
-							if (issafe(unit.fixed) == false) then
+							local isKeyUnsafe = (b ~= unit.fixed) and (issafe(b) == false)
+							local isDoorUnsafe = (issafe(unit.fixed) == false)
+							
+							if isDoorUnsafe then
 								generaldata.values[SHAKE] = 8
 								table.insert(delthese, unit.fixed)
 								doparts = true
 								online = false
+							elseif isKeyUnsafe then -- Door is safe, key isn't
+								ws_setKarma(unit.fixed)
 							end
 							
-							if (b ~= unit.fixed) and (issafe(b) == false) then
+							if isKeyUnsafe then
 								table.insert(delthese, b)
 								doparts = true
+							elseif isDoorUnsafe then -- Key is safe, door isn't
+								ws_setKarma(b)
 							end
 							
 							if doparts then
@@ -1184,7 +1219,8 @@ function block(small_)
 				
 				if (#things > 0) then
 					for a,b in ipairs(things) do
-						if (issafe(b) == false) and floating(b,unit.fixed,x,y) and (b ~= unit.fixed) and (iseaten[b] == nil) then
+						if (issafe(b) == false) and floating(b,unit.fixed,x,y) and (b ~= unit.fixed) then -- EDIT: implement karma for EAT
+							if (iseaten[b] == nil) then
 							generaldata.values[SHAKE] = 4
 							table.insert(delthese, b)
 							
@@ -1194,6 +1230,8 @@ function block(small_)
 							MF_particles("eat",x,y,5 * pmult,0,3,1,1)
 							removalshort = sound
 							removalsound = 1
+						end
+							delthese,removalshort,removalsound = ws_setKarmaOrDestroy(x,y,unit.fixed,delthese,removalshort,removalsound)
 						end
 					end
 				end
@@ -1361,7 +1399,7 @@ function block(small_)
 	isyou = getunitswitheffect("you",false,delthese)
 	isyou2 = getunitswitheffect("you2",false,delthese)
 	isyou3 = getunitswitheffect("3d",false,delthese)
-	isyou4 = getunitswitheffect("alive",false,delthese)
+	isyou4 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
 	
 	for i,v in ipairs(isyou2) do
 		table.insert(isyou, v)
@@ -1401,6 +1439,7 @@ function block(small_)
 										if (issafe(d,x,y) == false) then
 											generaldata.values[SHAKE] = 5
 											table.insert(delthese, d)
+											delthese,removalshort,removalsound = ws_karma(x,y,"bonus",d,delthese,removalshort,removalsound) -- EDIT: add karma for BONUS
 										end
 									end
 								end
@@ -1552,8 +1591,12 @@ function levelblock()
 		local lstill = isstill_or_locked(1,nil,nil,mapdir)
 		local lsleep = issleep(1)
 		local lsafe = issafe(1)
+		local lkarma = hasfeature("level","is","karma",1) or false
 		local emptybonus = false
 		local emptydone = false
+		
+		local ewintiles = {}
+		local eendtiles = {}
 		
 		local levelteledone = 0
 		
@@ -1651,7 +1694,7 @@ function levelblock()
 									elseif (defeatpair == "defeat") then
 										defeat = true
 									end
-								elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d") or (rule[3] == "alive")) and testcond(conds,2,i,j) then
+								elseif ws_isPlayerProp(rule[3]) and testcond(conds,2,i,j) then -- EDIT: Replace long check with "Is player property" function
 									candefeat = true
 									canwin = true
 									
@@ -1668,7 +1711,7 @@ function levelblock()
 									elseif (winpair == "win") then
 										victory = true
 									end
-								elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d") or (rule[3] == "alive")) and testcond(conds,2,i,j) then
+								elseif ws_isPlayerProp(rule[3]) and testcond(conds,2,i,j) then -- EDIT: Same as above
 									candefeat = true
 									canwin = true
 									
@@ -1687,7 +1730,7 @@ function levelblock()
 									end
 									
 									canbonus = true
-								elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d") or (rule[3] == "alive")) and testcond(conds,2,i,j) then
+								elseif ws_isPlayerProp(rule[3]) and testcond(conds,2,i,j) then -- EDIT: Same as above
 									if (string.len(bonuspair) == 0) then
 										bonuspair = "bonus"
 									elseif (bonuspair == "you") then
@@ -1703,7 +1746,7 @@ function levelblock()
 									end
 									
 									canend = true
-								elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d") or (rule[3] == "alive")) and testcond(conds,2,i,j) then
+								elseif ws_isPlayerProp(rule[3]) and testcond(conds,2,i,j) then -- EDIT: Same as above
 									if (string.len(endpair) == 0) then
 										endpair = "end"
 									elseif (endpair == "you") then
@@ -1737,12 +1780,20 @@ function levelblock()
 									victory = true
 								end
 								
-								if canbonus and ((hasfeature("level","is","you",1,i,j) ~= nil) or (hasfeature("level","is","you2",1,i,j) ~= nil) or (hasfeature("level","is","3d",1,i,j) ~= nil) or (hasfeature("level","is","alive",1,i,j) ~= nil)) and floating_level(2,i,j) then
+								if canbonus and ws_isLevelPlayer(i,j) and floating_level(2,i,j) then -- EDIT: Replaced long check with function
 									bonus = true
 								end
 								
-								if canend and ((hasfeature("level","is","you",1,i,j) ~= nil) or (hasfeature("level","is","you2",1,i,j) ~= nil) or (hasfeature("level","is","3d",1,i,j) ~= nil) or (hasfeature("level","is","alive",1,i,j) ~= nil)) and floating_level(2,i,j) then
+								if canend and ws_isLevelPlayer(i,j) and floating_level(2,i,j) then -- EDIT: Same as above
 									ending = true
+								end
+								
+								if victory then
+									table.insert(ewintiles, {i,j})
+								end
+								
+								if ending then
+									table.insert(eendtiles, {i,j})
 								end
 							elseif (rule[2] == "eat") and (rule[3] == "level") and (lsafe == false) then
 								if testcond(conds,2,i,j) and floating_level(2,i,j) then
@@ -1869,11 +1920,16 @@ function levelblock()
 							table.insert(edelthese, {i,j})
 						end
 						
-						if bonus and (esafe == false) and alive then
+						if bonus and (esafe == false) then
+							if alive then
 							setsoundname("turn",2)
 							
 							if (math.random(1,4) == 1) then
 								MF_particles("win",i,j,1,4,2,1,1)
+							end
+							
+								alive = false
+								table.insert(edelthese, {i,j})
 							end
 							
 							if (emptybonus == false) then
@@ -1882,9 +1938,6 @@ function levelblock()
 								addundo({"bonus",1})
 								emptybonus = true
 							end
-							
-							alive = false
-							table.insert(edelthese, {i,j})
 						end
 						
 						if victory and alive then
@@ -1923,12 +1976,48 @@ function levelblock()
 			delete(2,b[1],b[2])
 		end
 		
+		if (#ewintiles > 0) then
+			for a,b in ipairs(ewintiles) do
+				local i,j = b[1],b[2]
+				local tileid = i + j * roomsizex
+				if (unitmap[tileid] == nil) or (#unitmap[tileid] == 0) then
+					MF_win()
+					return
+				end
+			end
+		end
+		
+		if (#eendtiles > 0) and (generaldata.strings[WORLD] ~= generaldata.strings[BASEWORLD]) then
+			for a,b in ipairs(eendtiles) do
+				local i,j = b[1],b[2]
+				local tileid = i + j * roomsizex
+				if (unitmap[tileid] == nil) or (#unitmap[tileid] == 0) then
+					if (editor.values[INEDITOR] ~= 0) then
+						MF_end_single()
+						MF_win()
+						return
+					else
+						MF_end_single()
+						MF_win()
+						MF_credits(1)
+						return
+					end
+				end
+			end
+		end
+		
 		if (#things > 0) then
 			for i,rules in ipairs(things) do
 				local rule = rules[1]
 				local conds = rules[2]
 				
 				--MF_alert(rule[1] .. " " .. rule[2] .. " " .. rule[3] .. ", " .. tostring(testcond(conds,1)))
+				
+				
+				if levelKarma and lkarma and (lsafe == false) then -- EDIT: destroy KARMA levels if the karma flag is true
+					destroylevel()
+					return
+				end
 				
 				if (rule[2] == "eat") then
 					local eaten = {}
@@ -1945,6 +2034,8 @@ function levelblock()
 								dothese = findgroup(target)
 							end
 							
+							local destroyedSomething = false
+							
 							for c,d in ipairs(dothese) do
 								if (unitlists[d] ~= nil) then
 									if (d == "level") and (#unitlists["level"] > 0) and (lsafe == false) then
@@ -1957,9 +2048,19 @@ function levelblock()
 										end
 									end
 									
-									for a,unitid in ipairs(unitlists[d]) do
+									for a,unitid in ipairs(unitlists[d]) do -- EDIT: set level karma when destroying something (LEVEL EAT X)
 										if (issafe(unitid) == false) then
+											destroyedSomething = true
 											table.insert(eaten, unitid)
+										end
+									end
+									
+									if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+										if lkarma and (lsafe == false) then
+											destroylevel()
+											return
+										else
+											ws_setLevelKarma()
 										end
 									end
 								end
@@ -2411,10 +2512,11 @@ function levelblock()
 				if (rule[1] == "level") and (rule[2] == "is") and testcond(conds,1) then
 					local action = rule[3]
 					
-					if (action == "you") or (action == "you2") or (action == "3d") or (action == "alive") then
+					if ws_isPlayerProp(action) then -- EDIT: Replace long check with "Is player property" function
 						local defeats = findfeature(nil,"is","defeat")
 						local wins = findfeature(nil,"is","win")
 						local ends = findfeature(nil,"is","end")
+						local bonus = findfeature(nil,"is","bonus")
 						
 						if (defeats ~= nil) then
 							for a,b in ipairs(defeats) do
@@ -2442,7 +2544,7 @@ function levelblock()
 							end
 						end
 						
-						if ((#findallfeature("empty","is","defeat") > 0) or (#findallfeature("empty","is","defeat") > 0)) and floating_level(2) and (lsafe == false) then
+						if ((#findallfeature("empty","is","defeat") > 0)) and floating_level(2) and (lsafe == false) then
 							local is_guarded = ack_endangered_unit(1)
 							if not is_guarded then
 								destroylevel()
@@ -2452,6 +2554,7 @@ function levelblock()
 						
 						local canwin = false
 						local canend = false
+						local canbonus = false
 						
 						if (wins ~= nil) then
 							for a,b in ipairs(wins) do
@@ -2489,12 +2592,17 @@ function levelblock()
 							end
 						end
 						
-						if ((#findallfeature("empty","is","win") > 0) or (#findallfeature("empty","is","win") > 0)) and floating_level(2) then
+						if (#findallfeature("empty","is","win") > 0) and floating_level(2) then -- EDIT: Removed double check
 							canwin = true
 						end
 						
-						if ((#findallfeature("empty","is","end") > 0) or (#findallfeature("empty","is","end") > 0)) and floating_level(2) then
+						if (#findallfeature("empty","is","end") > 0) and floating_level(2) then -- EDIT: Removed double check
 							canend = true
+						end
+						
+						if canbonus then
+							MF_bonus(1)
+							addundo({"bonus",1})
 						end
 						
 						if canwin then
@@ -2515,26 +2623,7 @@ function levelblock()
 							end
 						end
 					elseif (action == "defeat") then
-						local yous = findfeature(nil,"is","you")
-						local yous2 = findfeature(nil,"is","you2")
-						local yous3 = findfeature(nil,"is","3d")
-						local yous4 = findfeature(nil,"is","alive")
-						
-						if (yous == nil) then
-							yous = {}
-						end
-						
-						if (yous2 ~= nil) then
-							for i,v in ipairs(yous2) do
-								table.insert(yous, v)
-							end
-						end
-						
-						if (yous3 ~= nil) then
-							for i,v in ipairs(yous3) do
-								table.insert(yous, v)
-							end
-						end
+						local yous = ws_findPlayers() -- EDIT: Replaced long repeated sequence with function
 						
 						if (yous4 ~= nil) then
 							for i,v in ipairs(yous4) do
@@ -2547,9 +2636,11 @@ function levelblock()
 								if (b[1] ~= "level") then
 									local allyous = findall(b)
 									
-									if (#allyous > 0) then
+									if (#allyous > 0) then -- EDIT: set level karma when destroying something (LEVEL IS DEFEAT)
+										local destroyedSomething = false
 										for c,d in ipairs(allyous) do
 											if (issafe(d) == false) and floating_level(d) then
+												destroyedSomething = true
 												local unit = mmf.newObject(d)
 												
 												local pmult,sound = checkeffecthistory("defeat")
@@ -2557,6 +2648,15 @@ function levelblock()
 												setsoundname("removal",1,sound)
 												generaldata.values[SHAKE] = 2
 												delete(d)
+											end
+										end
+										
+										if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+											if lkarma and (lsafe == false) then
+												destroylevel()
+												return
+											else
+												ws_setLevelKarma()
 											end
 										end
 									end
@@ -2591,9 +2691,11 @@ function levelblock()
 							for a,b in ipairs(melts) do
 								local allmelts = findall(b)
 								
-								if (#allmelts > 0) then
+								if (#allmelts > 0) then -- EDIT: set level karma when destroying something (LEVEL IS HOT)
+									local destroyedSomething = false
 									for c,d in ipairs(allmelts) do
 										if (issafe(d) == false) and floating_level(d) then
+											destroyedSomething = true
 											local unit = mmf.newObject(d)
 											
 											local pmult,sound = checkeffecthistory("hot")
@@ -2601,6 +2703,15 @@ function levelblock()
 											generaldata.values[SHAKE] = 2
 											setsoundname("removal",9,sound)
 											delete(d)
+										end
+									end
+									
+									if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+										if lkarma and (lsafe == false) then
+											destroylevel()
+											return
+										else
+											ws_setLevelKarma()
 										end
 									end
 								end
@@ -2680,6 +2791,7 @@ function levelblock()
 						end
 						
 						if (#openthese > 0) then
+							ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS OPEN)
 							generaldata.values[SHAKE] = 8
 							
 							for a,b in ipairs(openthese) do
@@ -2740,6 +2852,7 @@ function levelblock()
 						end
 						
 						if (#openthese > 0) then
+							ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS SHUT)
 							generaldata.values[SHAKE] = 8
 							
 							for a,b in ipairs(openthese) do
@@ -2787,7 +2900,8 @@ function levelblock()
 							end
 						end
 						
-						if (#openthese > 0) then
+						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS SINK)
+							ws_setLevelKarma()
 							generaldata.values[SHAKE] = 3
 							
 							for a,b in ipairs(openthese) do
@@ -2828,7 +2942,8 @@ function levelblock()
 							end
 						end
 						
-						if (#openthese > 0) then
+						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS BOOM)
+							ws_setLevelKarma()
 							generaldata.values[SHAKE] = 3
 							
 							for a,b in ipairs(openthese) do
@@ -2866,26 +2981,7 @@ function levelblock()
 						
 						MF_playsound("doneall_c")
 					elseif (action == "bonus") then
-						local yous = findfeature(nil,"is","you")
-						local yous2 = findfeature(nil,"is","you2")
-						local yous3 = findfeature(nil,"is","3d")
-						local yous4 = findfeature(nil,"is","alive")
-						
-						if (yous == nil) then
-							yous = {}
-						end
-						
-						if (yous2 ~= nil) then
-							for i,v in ipairs(yous2) do
-								table.insert(yous, v)
-							end
-						end
-						
-						if (yous3 ~= nil) then
-							for i,v in ipairs(yous3) do
-								table.insert(yous, v)
-							end
-						end
+						local yous = ws_findPlayers() -- EDIT: Replaced long repeated sequence with function
 						
 						if (yous4 ~= nil) then
 							for i,v in ipairs(yous4) do
@@ -2900,13 +2996,19 @@ function levelblock()
 									
 									if (#allyous > 0) then
 										for c,d in ipairs(allyous) do
-											if (issafe(d) == false) and floating_level(d) then
+											if floating_level(d) then
+												bonusget = true
+												
+												if (lsafe == false) then
 												destroylevel("bonus")
 												return
 											end
 										end
 									end
+									end
 								elseif testcond(b[2],1) then
+									bonusget = true
+									
 									if (lsafe == false) then
 										destroylevel("bonus")
 										return
@@ -2915,31 +3017,22 @@ function levelblock()
 							end
 						end
 						
-						if ((#findallfeature("empty","is","you") > 0) or (#findallfeature("empty","is","you2") > 0) or (#findallfeature("empty","is","3d") > 0) or (#findallfeature("empty","is","alive") > 0)) and floating_level(2) and (lsafe == false) then
-							destroylevel("bonus")
-							return
-						end
-					elseif (action == "reset" or action == "win") then
-						local yous = findfeature(nil,"is","you")
-						local yous2 = findfeature(nil,"is","you2")
-						local yous3 = findfeature(nil,"is","3d")
-						local yous4 = findfeature(nil,"is","alive")
-						
-						if (yous == nil) then
-							yous = {}
-						end
-						
-						if (yous2 ~= nil) then
-							for i,v in ipairs(yous2) do
-								table.insert(yous, v)
+						if ws_areTherePlayerEmpties() and floating_level(2) and (lsafe == false) then -- Replaced alive empty check with function
+							bonusget = true
+							
+							if (lsafe == false) then
+								destroylevel("bonus")
+								return
 							end
 						end
 						
-						if (yous3 ~= nil) then
-							for i,v in ipairs(yous3) do
-								table.insert(yous, v)
-							end
+						if bonusget then
+							MF_playsound("bonus")
+							MF_bonus(1)
+							addundo({"bonus",1})
 						end
+					elseif (action == "win") then
+						local yous = ws_findPlayers() -- Replaced long repeated sequence with function
 						
 						if (yous4 ~= nil) then
 							for i,v in ipairs(yous4) do
@@ -2974,11 +3067,11 @@ function levelblock()
 						end
 						
 						local emptyyou = false
-						if ((#findallfeature("empty","is","you") > 0) or (#findallfeature("empty","is","you2") > 0) or (#findallfeature("empty","is","3d") > 0) or (#findallfeature("empty","is","alive") > 0)) and floating_level(2) then
+						if ws_areTherePlayerEmpties() and floating_level(2) then -- Replaced alive empty check with function
 							emptyyou = true
 						end
 						
-						if (hasfeature("level","is","you",1) ~= nil) or (hasfeature("level","is","you2",1) ~= nil) or (hasfeature("level","is","3d",1) ~= nil) or (hasfeature("level","is","alive",1) ~= nil) or emptyyou then
+						if ws_isLevelPlayer() or emptyyou then -- Replaced long check with function
 							canwin = true
 						end
 						
@@ -2987,26 +3080,7 @@ function levelblock()
 							return
 						end
 					elseif (action == "end") then
-						local yous = findfeature(nil,"is","you")
-						local yous2 = findfeature(nil,"is","you2")
-						local yous3 = findfeature(nil,"is","3d")
-						local yous4 = findfeature(nil,"is","alive")
-						
-						if (yous == nil) then
-							yous = {}
-						end
-						
-						if (yous2 ~= nil) then
-							for i,v in ipairs(yous2) do
-								table.insert(yous, v)
-							end
-						end
-						
-						if (yous3 ~= nil) then
-							for i,v in ipairs(yous3) do
-								table.insert(yous, v)
-							end
-						end
+						local yous = ws_findPlayers() -- Replaced long repeated sequence with function
 						
 						if (yous4 ~= nil) then
 							for i,v in ipairs(yous4) do
@@ -3039,11 +3113,11 @@ function levelblock()
 						end
 						
 						local emptyyou = false
-						if ((#findallfeature("empty","is","you") > 0) or (#findallfeature("empty","is","you2") > 0) or (#findallfeature("empty","is","3d") > 0) or (#findallfeature("empty","is","alive") > 0)) and floating_level(2) then
+						if ws_areTherePlayerEmpties() and floating_level(2) then -- Replaced alive empty check with function
 							emptyyou = true
 						end
 						
-						if (hasfeature("level","is","you",1) ~= nil) or (hasfeature("level","is","you2",1) ~= nil) or (hasfeature("level","is","3d",1) ~= nil) or (hasfeature("level","is","alive",1) ~= nil) or emptyyou then
+						if ws_isLevelPlayer() or emptyyou then -- Replaced long check with function
 							canend = true
 						end
 						
@@ -3574,6 +3648,7 @@ end
 function findplayer(undoing)
 	local playerfound = false
 	local playerfound_3d = false
+	local vesselsfound = false
 	
 	local noundo = false
 	if (undoing ~= nil) and (undoing == 2) then
@@ -3583,7 +3658,10 @@ function findplayer(undoing)
 	local players1 = findfeature(nil,"is","you")
 	local players2 = findfeature(nil,"is","you2")
 	local players3 = findfeature(nil,"is","3d")
-	local players4 = findfeature(nil,"is","alive")
+	local players4 = findfeature(nil,"is","alive") -- Get all ALIVE features
+	
+	local vessels = findfeature(nil,"is","vessel") or {} -- Get all VESSEL features (used to keep music if option is enabled)
+	local vessels2 = findfeature(nil,"is","vessel2") or {}
 	
 	local players = {}
 	if (players1 ~= nil) then
@@ -3598,7 +3676,7 @@ function findplayer(undoing)
 		end
 	end
 	
-	if (players4 ~= nil) then
+	if (players4 ~= nil) then -- Add ALIVE features to the list of 2D players
 		for i,v in ipairs(players4) do
 			table.insert(players, v)
 		end
@@ -3651,7 +3729,35 @@ function findplayer(undoing)
 		visionmode(0,nil,noundo)
 	end
 	
-	if playerfound then
+	-- EDIT: check if there are VESSEL units
+	for _,v in ipairs(vessels2) do
+		table.insert(vessels,v)
+	end
+	
+	if (#vessels > 0) then
+		for i,v in ipairs(vessels) do
+			if (v[1] ~= "level") and (v[1] ~= "empty") then
+				local allvessels = findall(v)
+				
+				if (#allvessels > 0) then
+					vesselsfound = true
+				end
+			elseif (v[1] == "level") then
+				if testcond(v[2],1) then
+					vesselsfound = true
+				end
+			elseif (v[1] == "empty") then
+				local empties = findempty(v[2],true)
+				
+				if (#empties > 0) then
+					vesselsfound = true
+				end
+			end
+		end
+	end
+	--
+	
+	if playerfound or (MUSIC_WHEN_ONLY_VESSELS and vesselsfound) then
 		MF_musicstate(0)
 		generaldata2.values[NOPLAYER] = 0
 	else

@@ -9,9 +9,9 @@ end
 reset_this_mod_globals()
 
 local utils = PlasmaModules.load_module("general/utils")
-local DirTextDisplay = PlasmaModules.load_module("general/directional_text_display")
 local UndoAnalyzer = PlasmaModules.load_module("general/undo_analyzer") 
 local RaycastTrace = PlasmaModules.load_module("this/pnoun_raycast_trace")
+local RaycastBank = PlasmaModules.load_module("this/raycast_bank")
 local Pnoun = PlasmaModules.load_module("this/pnoun_group_defs")
 
 local raycast_trace_tracker = RaycastTrace:new()
@@ -122,6 +122,20 @@ local PointerNouns = {
     those = true,
 }
 
+local playref = editor_objlist_reference["text_play"]
+local feelingref = editor_objlist_reference["text_feeling"]
+if editor_objlist[playref].argextra == nil then
+    editor_objlist[playref].argextra = {}
+end
+if editor_objlist[feelingref].argextra == nil then
+    editor_objlist[feelingref].argextra = {}
+end
+for pnoun_name, _ in pairs(PointerNouns) do
+    table.insert(editor_objlist[playref].argextra, pnoun_name)
+    table.insert(editor_objlist[feelingref].argextra, pnoun_name)
+end
+
+
 local function reset_this_mod_locals()
     blocked_tiles = {}
     explicit_passed_tiles = {}
@@ -147,10 +161,12 @@ table.insert(mod_hook_functions["rule_baserules"],
 -- Note: changed from "effect_always" to "always" since effect_always only activates when disable particle effects is off 
 table.insert(mod_hook_functions["always"],
     function()
-        update_all_cursors(indicator_layer_timer)
-        indicator_layer_timer = indicator_layer_timer + 1
-        if indicator_layer_timer >= TIMER_PERIOD then
-            indicator_layer_timer = 0
+        if (generaldata.values[MODE] == 0) then
+            utils.try_call(update_all_cursors, indicator_layer_timer)
+            indicator_layer_timer = indicator_layer_timer + 1
+            if indicator_layer_timer >= TIMER_PERIOD then
+                indicator_layer_timer = 0
+            end
         end
     end
 )
@@ -453,8 +469,11 @@ function defer_addoption_with_this(rule)
     end
 end
 
-function register_pnoun_in_cond(pnoun_unitid)
-    pnoun_subrule_data.pnouns_in_conds[pnoun_unitid] = true
+function register_pnoun_in_cond(pnoun_unitid, condtype)
+    local real_condtype = utils.real_condtype(condtype)
+    pnoun_subrule_data.pnouns_in_conds[pnoun_unitid] = {
+        condtype = real_condtype
+    }
 end
 
 -- local
@@ -931,8 +950,8 @@ function check_updatecode_status_from_raycasting()
 end
 
 function get_raycast_objects(this_text_unitid)
-    if is_this_unit_in_stablerule(this_text_unitid) then
-        return get_stable_this_raycast_units(tonumber(this_text_unitid))
+    if RaycastBank:is_valid_ray_id(this_text_unitid) then
+        return RaycastBank:get_raycast_objects(this_text_unitid)
     end
 
     if raycast_data[this_text_unitid] == nil then
@@ -943,8 +962,8 @@ function get_raycast_objects(this_text_unitid)
 end
 
 function get_raycast_tileid(this_text_unitid)
-    if is_this_unit_in_stablerule(this_text_unitid) then
-        return get_stable_this_raycast_pos(tonumber(this_text_unitid))
+    if RaycastBank:is_valid_ray_id(this_text_unitid) then
+        return RaycastBank:get_raycast_tileids(this_text_unitid)
     end
 
     return raycast_data[this_text_unitid].raycast_positions
@@ -980,88 +999,191 @@ condlist["this"] = function(params,checkedconds,checkedconds_,cdata)
     return false, checkedconds
 end
 
-local function is_unit_valid_this_property(unitid, verb)
-    if unitid == 2 then return true end
-        
-    local unit = mmf.newObject(unitid)
-    if unit.strings[UNITTYPE] == "object" then
-        return true
+local function is_unit_valid_this_property(name, unittype, texttype, verb)
+    if is_name_text_this(name) then
+        return false
     end
 
-    if unit.strings[UNITTYPE] == "text" then
-        if verb == "is" then
-            if unit.values[TYPE] == 2 then
-                return true
-            elseif unit.values[TYPE] == 0 and not is_name_text_this(unit.strings[NAME]) then
-                return true
+    if verb == "is" then
+        if unittype == "text" and (texttype == 2 or texttype == 0) then
+            return true
+        elseif unittype == "object" then
+            return true
+        end
+    elseif verb == "write" then
+        if unittype == "text" and (texttype == 0 or texttype == 2) then
+            return true
+        elseif unittype == "object" then
+            return true
+        end
+    elseif verb == "play" then
+        local play_realname = unitreference["text_play"]
+        if (changes[play_realname] ~= nil) then
+            local wchanges = changes[play_realname]
+
+            local found = false
+            for _, argtype in ipairs(wchanges.argtype) do
+                if argtype == 8 then
+                    found = true
+                    break
+                end
             end
-        else
-            if unit.values[TYPE] == 0 and not is_name_text_this(unit.strings[NAME]) then
-                return true
+            if (found) then
+                for _, customobject in ipairs(wchanges.customobjects) do
+                    if name == customobject then
+                        return true
+                    end
+                end
             end
+        end
+    else
+        if texttype == 0 then
+            return true
+        elseif unittype == "object" then
+            return true
         end
     end
 
     return false
 end
 
--- Like get_raycast_objects, but factors in this redirection
-local function get_raycast_property_units(this_text_unitid, checkblocked, checkpass, checkrelay, verb)
-    if not raycast_data[this_text_unitid] then
-        return {}, {}
+function is_unit_valid_this_infix_param(name, unittype, texttype, infix_cond)
+    if is_name_text_this(name) then
+        return false
     end
-    local this_text_unit = mmf.newObject(this_text_unitid)
-    local init_tileid = this_text_unit.values[XPOS] + this_text_unit.values[YPOS] * roomsizex
 
-    local visited_tileids = {}
-    visited_tileids[init_tileid] = true
+    if infix_cond == "feeling" then
+        if unittype == "text" and texttype == 2 then
+            return true
+        end
+    else
+        if unittype == "text" and texttype == 0 then
+            return true
+        elseif unittype == "object" then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function get_valid_letterwords(tileid, reason, reason_type)
+    local found_letterwords = {}
+    if (letterunits_map[tileid] ~= nil) then
+        local single_letter_words = {}
+        for i,v in ipairs(letterunits_map[tileid]) do
+            local word = v[1]
+            local wtype = v[2]
+            local x = v[3]
+            local y = v[4]
+            local dir = v[5]
+            local width = v[6]
+            local unitids = v[7]
+
+            local letter_tileid = utils.tileid_from_coords(x, y)
+            if letter_tileid == tileid then
+                if (string.len(word) > 5) and (string.sub(word, 1, 5) == "text_") then
+                    word = string.sub(v[1], 6)
+                end
+
+                local is_valid = false
+                if reason_type == "infix" then
+                    is_valid = is_unit_valid_this_infix_param(word, "text", wtype, reason)
+                else
+                    is_valid = is_unit_valid_this_property(word, "text", wtype, reason)
+                end
+                
+                if is_valid then
+                    if width == 1 then
+                        single_letter_words[word] = v
+                    else
+                        table.insert(found_letterwords, v)
+                    end
+                end
+            end
+        end
+
+        if #found_letterwords == 0 then
+            for word, letterword in pairs(single_letter_words) do
+                table.insert(found_letterwords, letterword)
+            end
+        end
+    end
+
+    return found_letterwords
+end
+
+function get_raycast_infix_units(this_text_unitid, infix)
+    local out_raycast_units = {}
+    local found_letterwords = {}
+    for ray_tileid, raycast_objects in pairs(raycast_data[this_text_unitid].raycast_positions) do
+        for _, ray_object in ipairs(raycast_objects) do
+            local ray_unit_details = utils.parse_object_full(ray_object)
+            if ray_unit_details.texttype ~= 5 then
+                if is_unit_valid_this_infix_param(ray_unit_details.name, ray_unit_details.unittype, ray_unit_details.texttype, infix) then
+                    table.insert(out_raycast_units, ray_object)
+                end
+            end
+        end
+
+        for _, letterword in ipairs(get_valid_letterwords(ray_tileid, infix, "infix")) do
+            table.insert(found_letterwords, letterword)
+        end
+    end
+
+    return out_raycast_units, found_letterwords
+end
+
+-- Like get_raycast_objects, but factors in this redirection
+local function get_raycast_property_units(this_text_unitid, verb)
     local out_raycast_units = {}
     local redirected_pnouns = {}
-    local raycast_this_texts = { this_text_unitid } -- This will be treated as a stack, meaning we are doing DFS instead of BFS
-    local lit_up_this_texts = {}
+    local found_letterwords = {}
 
-    while #raycast_this_texts > 0 do
-        local curr_this_unitid = table.remove(raycast_this_texts) -- Pop the stack 
+    if raycast_data[this_text_unitid] then
+        local this_text_unit = mmf.newObject(this_text_unitid)
+        local init_tileid = this_text_unit.values[XPOS] + this_text_unit.values[YPOS] * roomsizex
         
-        for curr_raycast_tileid, raycast_objects in pairs(raycast_data[curr_this_unitid].raycast_positions) do
-            if checkblocked and blocked_tiles[curr_raycast_tileid] then
-                -- do nothing if blocked
-            elseif checkpass and explicit_passed_tiles[curr_raycast_tileid] then
-                -- do nothing if the tile is explicitly passed
-            elseif checkrelay and explicit_relayed_tiles[curr_raycast_tileid] then
-                -- do nothing if the tile is explicitly relayed
-            elseif visited_tileids[curr_raycast_tileid] then
-
-            elseif curr_raycast_tileid then
-                visited_tileids[curr_raycast_tileid] = true
-                lit_up_this_texts[curr_this_unitid] = true
-
-                for i, ray_object in ipairs(raycast_objects) do
-                    local ray_unitid = utils.parse_object(ray_object)
-                    if ray_unitid == 2 then
-                        table.insert(out_raycast_units, ray_object)
-                    else
-                        local ray_unit = mmf.newObject(ray_unitid)
-
-                        if is_name_text_this(ray_unit.strings[NAME]) then
-                            table.insert(raycast_this_texts, ray_unitid)
-                            table.insert(redirected_pnouns, ray_unitid)
-                        elseif is_unit_valid_this_property(ray_unitid, verb) then
+        local visited_tileids = {}
+        visited_tileids[init_tileid] = true
+        local raycast_this_texts = { this_text_unitid } -- This will be treated as a stack, meaning we are doing DFS instead of BFS
+    
+        while #raycast_this_texts > 0 do
+            local curr_this_unitid = table.remove(raycast_this_texts) -- Pop the stack 
+            
+            for curr_raycast_tileid, raycast_objects in pairs(raycast_data[curr_this_unitid].raycast_positions) do
+                if blocked_tiles[curr_raycast_tileid] then
+                    -- do nothing if blocked
+                elseif explicit_passed_tiles[curr_raycast_tileid] then
+                    -- do nothing if the tile is explicitly passed
+                elseif explicit_relayed_tiles[curr_raycast_tileid] then
+                    -- do nothing if the tile is explicitly relayed
+                elseif visited_tileids[curr_raycast_tileid] then
+                    -- do nothing if we visited this current tile
+                elseif curr_raycast_tileid then
+                    visited_tileids[curr_raycast_tileid] = true
+    
+                    for _, ray_object in ipairs(raycast_objects) do
+                        local ray_unit_details = utils.parse_object_full(ray_object)
+                        if is_unit_valid_this_property(ray_unit_details.name, ray_unit_details.unittype, ray_unit_details.texttype, verb) then
                             table.insert(out_raycast_units, ray_object)
+                        else
+                            if is_name_text_this(ray_unit_details.name) then
+                                table.insert(raycast_this_texts, ray_unit_details.unitid)
+                                table.insert(redirected_pnouns, ray_unit_details.unitid)
+                            end
                         end
+                    end
+    
+                    for _, letterword in ipairs(get_valid_letterwords(curr_raycast_tileid, verb, "verb")) do
+                        table.insert(found_letterwords, letterword)
                     end
                 end
             end
         end
     end
 
-    -- if #out_raycast_units > 0 then
-    --     for unitid, _ in pairs(lit_up_this_texts) do
-    --         this_mod_globals.active_this_property_text[unitid] = true
-    --     end
-    -- end
-
-    return out_raycast_units, redirected_pnouns
+    return out_raycast_units, redirected_pnouns, found_letterwords
 end
 
 local function populate_inactive_pnouns()
@@ -1112,26 +1234,47 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
             local this_text_unitid = get_property_unitid_from_rule(rules)
             if this_text_unitid then
                 table.insert(found_pnouns, this_text_unitid)
-                local raycast_objects, redirected_pnouns = get_raycast_property_units(this_text_unitid, true, true, true, verb)
+                local raycast_objects, redirected_pnouns, found_letterwords = get_raycast_property_units(this_text_unitid, verb)
                 redirected_pnouns_in_feature = redirected_pnouns
                 for _, object in ipairs(raycast_objects) do
-                    local unitid = utils.parse_object(object)
-                    local ray_unit = mmf.newObject(unitid)
-                    local rulename = ""
-                    if unitid == 2 then
-                        rulename = "empty"
-                    else
-                        rulename = ray_unit.strings[NAME]
-                        if is_turning_text(rulename) then
-                            rulename = get_turning_text_interpretation(unitid)
+                    local unit_details = utils.parse_object_full(object)
+
+                    local rulename = unit_details.name
+                    if is_turning_text(rulename) then
+                        rulename = get_turning_text_interpretation(unit_details.unitid)
+                    end
+
+                    if filter_property_func(rulename) and unit_details.texttype ~= 5 then
+                        if rulename ~= "empty" then
+                            if unit_details.unittype == "text" then
+                                this_mod_globals.active_this_property_text[unit_details.unitid] = true
+                            end
                         end
+
+                        if prop_isnot then
+                            rulename = "not "..rulename
+                        end
+                        
+                        local newrule = {rule[1],rule[2],rulename}
+                        local newconds = {}
+                        for a,b in ipairs(conds) do
+                            table.insert(newconds, b)
+                        end
+                        table.insert(property_options, {rule = newrule, conds = newconds, newrule = nil, showrule = nil})
+                    end
+                end
+
+                for _, letterword in ipairs(found_letterwords) do
+                    local rulename = letterword[1]
+                    local unittype = "text"
+
+                    if (string.len(rulename) > 5) and (string.sub(rulename, 1, 5) == "text_") then
+                        rulename = string.sub(letterword[1], 6)
                     end
 
                     if filter_property_func(rulename) then
-                        if rulename ~= "empty" then
-                            if ray_unit.strings[UNITTYPE] == "text" then
-                                this_mod_globals.active_this_property_text[unitid] = true
-                            end
+                        for _, letterunitid in ipairs(letterword[7]) do
+                            this_mod_globals.active_this_property_text[letterunitid] = true
                         end
 
                         if prop_isnot then
@@ -1288,6 +1431,24 @@ local function commit_raycast_data(pnoun_unitid, raycast_simulation_data, pnoun_
     if pnoun_subrule_data.active_pnouns[pnoun_unitid] or pnoun_subrule_data.pnouns_in_conds[pnoun_unitid] then
         for these_unitid in pairs(extradata.found_ending_these_texts) do
             this_mod_globals.active_this_property_text[these_unitid] = true
+        end
+
+        if pnoun_subrule_data.pnouns_in_conds[pnoun_unitid] then
+            local pnoun_cond_data = pnoun_subrule_data.pnouns_in_conds[pnoun_unitid]
+            if pnoun_cond_data.condtype == "feeling" then
+                local raycast_objects, found_letterwords = get_raycast_infix_units(pnoun_unitid, pnoun_cond_data.condtype)
+                for _, raycast_object in ipairs(raycast_objects) do
+                    local ray_unitid = utils.parse_object(raycast_object)
+                    if ray_unitid > 2 then
+                        this_mod_globals.active_this_property_text[ray_unitid] = true
+                    end
+                end
+                for _, letterword in ipairs(found_letterwords) do
+                    for _, letterunitid in ipairs(letterword[7]) do
+                        this_mod_globals.active_this_property_text[letterunitid] = true
+                    end
+                end
+            end
         end
     end
 

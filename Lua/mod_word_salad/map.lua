@@ -1,3 +1,3 @@
--- This is overridden so that objects that are ALIVE can read signs
+-- OVERRIDE: let ALIVE objects read signs (this is extremely important)
 
 --[[ @Merge: displaysigntext() was merged ]]

@@ -19,20 +19,9 @@ formatobjlist()
 -- @TODO: would it be better if the su_key was deleted instantly?
 local queued_deleted_su_keys = {}
     
-local STABLE_THIS_ID_BASE = -50
 local on_stable_undo = false
 
 local STABLE_LOGGING = false
-
---[[ 
-    We need this for a specific glitch that prevents the "Level Saved!" text from displaying. It's because we are calling MF_letterclear("stablerules") in the "always" modhook.
-    Apparently, even though MF_letterclear is supposed to clear all displayed texts for a certain group (the "stablerules"), it also clears the "Level Saved!" text even
-    though "stablerules" is a custom group. So the (hacky) fix is to detect if we are currently playing a level, done by a combination of the mod hook "level_start" and in clear_stable_units
-    (whenever clearunits is called)
-
-    Emphasis on "hacky". Be wary if this fix causes something else to break.-- (10/31/21)
- ]]
-local allow_stablerule_display = false
 
 local utils = PlasmaModules.load_module("general/utils")
 local PlasmaSettings = PlasmaModules.load_module("general/gui")
@@ -49,7 +38,6 @@ GLOBAL_checking_stable = false -- set to true whenever we are finding "X is stab
 function clear_stable_mod()
     print("clear_stable_mod")
     MF_letterclear("stablerules")
-    allow_stablerule_display = false
 
     stablestate:reset()
     stabledisplay:reset()
@@ -72,26 +60,15 @@ function on_delete_stableunit(unitid)
     end
 end
 
-function get_stable_this_raycast_units(stable_this_id)
-    if stablestate.stable_this_raycast_units[stable_this_id] then
-        return stablestate.stable_this_raycast_units[stable_this_id].objects
-    else
-        return {}
-    end
-end
-
-function get_stable_this_raycast_pos(stable_this_id)
-    return stablestate.stable_this_raycast_units[stable_this_id].tileids
-end
-
-function is_this_unit_in_stablerule(this_unitid)
-    return tonumber(this_unitid) and tonumber(this_unitid) <= STABLE_THIS_ID_BASE
-end 
-
 --@mods(stable x persist)
 function get_persist_stablestate_info(unitid)
     local object = utils.make_object(unitid)
     local stableunit = stablestate:get_stableunit(object)
+
+    if not stableunit then
+        return nil
+    end
+    
     local prototype_features = {}
     for ruleid, rule_data in pairs(stableunit.ruleids) do
         for i = 1, rule_data.stack_count do
@@ -212,7 +189,6 @@ table.insert(mod_hook_functions["level_start"],
     function()
         update_stable_state() -- Only reason we update stable state here is because of a bug where the stable cursor doesn't show at level startup
 
-        allow_stablerule_display = true
         enable_stablerule_display_setting = not PlasmaSettings.get_toggle_setting("disable_stable_display")
     end
 )
@@ -243,15 +219,17 @@ function update_stable_state(alreadyrun)
 
     -- Deleting items from stablestate.units and rules
     local deleted_su_key_count = 0
+    deleted_su_key_count = #queued_deleted_su_keys
     for _, object in ipairs(queued_deleted_su_keys) do
 
-        if STABLE_LOGGING then
-            print("Removing queued stableunit object ", utils.objectstring(object))
-        end
+        local stableunit = stablestate:get_stableunit(object)
         local removed = stablestate:remove_object(object)
         if removed then
-            deleted_su_key_count = deleted_su_key_count + 1
             stabledisplay:remove_stableunit(object)
+
+            utils.debug_assert(stableunit)
+            addundo({"stable","remove", object, stableunit})
+            deleted_su_key_count = deleted_su_key_count + 1
         end
     end
     queued_deleted_su_keys = {}
@@ -417,6 +395,10 @@ table.insert(mod_hook_functions["rule_update_after"],
     function()
         if on_stable_undo then
             on_stable_undo = false
+
+            if STABLE_LOGGING then
+                stablestate:print_stable_state(on_stable_undo)
+            end
         end
     end
 )
@@ -429,17 +411,17 @@ function handle_stable_undo(line)
     local stableunit = line[4]
     if action == "add" then
         if STABLE_LOGGING then
-            print("Removing stableunit on undo "..utils.objectstring(object))
+            print("Removing stableunit on undo "..object)
         end
 
-        local removed = stablestate:remove_object(object)
+        local removed = stablestate:remove_object(object, true)
         if removed then
             stabledisplay:remove_stableunit(object)
             updatecode = 1
         end
     elseif action == "remove" then
         if STABLE_LOGGING then
-            print("Restored stableunit on undo "..utils.objectstring(object))
+            print("Restored stableunit on undo "..object)
         end
 
         local restored = stablestate:restore_stableunit(stableunit)
@@ -455,10 +437,6 @@ end
 table.insert(mod_hook_functions["undoed"],
     function()
         on_stable_undo = true
-
-        if STABLE_LOGGING then
-            stablestate:print_stable_state(on_stable_undo)
-        end
     end
 )
 
@@ -467,6 +445,7 @@ table.insert(mod_hook_functions["command_given"],
         if STABLE_LOGGING then
             print("--------turn start--------")
         end
+        on_stable_undo = false
     end
 )
 
@@ -482,10 +461,11 @@ table.insert(mod_hook_functions["turn_end"],
 -- Note: changed from "effect_always" to "always" since effect_always only activates when disable particle effects is off 
 table.insert(mod_hook_functions["always"],
     function()
-        if allow_stablerule_display then
-            stabledisplay:update_stable_indicators()
+        if generaldata.values[MODE] == 0 then
+            if utils.try_call(stabledisplay.update_stable_indicators, stabledisplay) then
             if enable_stablerule_display_setting then
-                stabledisplay:show_stablerule_display()
+                    utils.try_call(stabledisplay.show_stablerule_display, stabledisplay)
+                end
             end
         end
     end
