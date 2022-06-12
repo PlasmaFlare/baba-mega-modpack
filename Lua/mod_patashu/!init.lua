@@ -7,6 +7,18 @@ very_sticky = false
 
 print("Start of !init.lua")
 
+function apply_patashu_settings(settings_dict)
+	for setting, value in pairs(settings_dict) do
+		if setting_name == "very_drunk" then
+			very_drunk = value
+		elseif setting_name == "float_breaks_sticky" then
+			float_breaks_sticky = value
+		elseif setting_name == "very_sticky" then
+			very_sticky = value
+		end
+	end
+end
+
 table.insert(objlistdata.alltags, "patashu")
 
 table.insert(editor_objlist_order, "text_slip")

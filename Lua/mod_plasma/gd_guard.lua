@@ -212,10 +212,13 @@ function ack_endangered_unit(object)
         for unitid, _ in pairs(get_guard_units(unitname)) do
             units_to_guard_destroy[unitid] = true
             if GUARD_LOGGING then
-                print("Marking guard unit to destroy: ", utils.objectstring(unitid))
-            end 
+                print("Marking guard unit to destroy: ", utils.unitstring(unitid))
+            end
         end
         units_to_save[object] = true
+        if GUARD_LOGGING then
+            print("Marking guard unit to save: ", utils.objectstring(object))
+        end
         return true
     else
         return false
@@ -265,7 +268,7 @@ local function handle_guard_dels()
             processed_destroyed_units[guard] = true
         else
             if GUARD_LOGGING then
-                print("- Already destroyed unit: ", utils.objectstring(guard))
+                print("- Already destroyed unit: ", guard)
             end
         end
     end

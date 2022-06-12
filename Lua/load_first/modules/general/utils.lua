@@ -141,13 +141,15 @@ utils = {
             return string.format("(Empty at %d,%d)", x, y)
         else
             local unit = mmf.newObject(unitid)
+            if not unit then return "Deleted object with unitid: "..unitid end
             return string.format("(%s with id %d at %d,%d | unitid %s)", unit.strings[NAME], unit.values[ID], unit.values[XPOS], unit.values[YPOS], tostring(unitid))
         end
     end,
 
     unitstring = function(unitid)
         local unit = mmf.newObject(unitid)
-        if not unit then utils.debug_error("Provided invalid unitid: "..tostring(unitid)) end
+        -- if not unit then utils.debug_error("Provided invalid unitid: "..tostring(unitid)) end
+        if not unit then return "Deleted unitid: "..unitid end
 
         return utils.objectstring(utils.make_object(unitid, unit.values[XPOS], unit.values[YPOS]))
     end,

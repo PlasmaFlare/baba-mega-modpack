@@ -111,6 +111,10 @@ menufuncs.pfsettings = {
             item_y = item_y + f_tilesize * 2
         end
 
+        item_y = screenh - f_tilesize
+
+        make_plasma_button("revert_plasma_settings", name, buttonid, "Restore default settings", 20, item_y)
+
         gd = MF_specialcreate("customsprite")
         MF_loadsprite(gd,"text_gd",27,true)
         local testunit = mmf.newObject(gd)
@@ -136,6 +140,16 @@ end
 buttonclick_list["pfreturn"] = function()
     MF_menubackground(false)
     changemenu("level")
+end
+buttonclick_list["revert_plasma_settings"] = function()
+    for setting_name, data in pairs(plasma_modpack_settings) do
+        local value = data.value
+        MF_store("world", "Plasma Mods", setting_name, value)
+        local buttons = MF_getbutton(data.buttonfunc)
+        for i,unitid in ipairs(buttons) do
+            updatebuttoncolour(unitid, value)
+        end
+    end
 end
 buttonclick_list["pflol"] = function()
     if gd then

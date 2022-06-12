@@ -910,7 +910,7 @@ condlist.without = function(params,checkedconds,checkedconds_,cdata)
 	local alreadyfound = {}
 	local unitcount = {}
 	
-	local name,notcond = cdata.name,cdata.notcond
+	local name,unitid,notcond = cdata.name,cdata.unitid,cdata.notcond
 			
 	if (#params > 0) then
 		for a,b in ipairs(params) do
@@ -972,27 +972,28 @@ condlist.without = function(params,checkedconds,checkedconds_,cdata)
 					end
 				else
 					local foundunits = 0
+					local targetcount = unitcount[b]
 					
 					for c,d in pairs(unitlists) do
-						if (c ~= pname) and (#unitlists[c] > 0) and (c ~= "text") then
+						if (c ~= pname) and (#unitlists[c] > 0) and (c ~= "text") and (string.sub(c, 1, 5) ~= "text_") then
 							for e,f in ipairs(d) do
 								if (f ~= unitid) and (alreadyfound[f] == nil) then
 									alreadyfound[f] = 1
 									foundunits = foundunits + 1
 									
-									if (foundunits >= unitcount[b]) then
+									if (foundunits >= targetcount) then
 										break
 									end
 								end
 							end
 						end
 						
-						if (foundunits >= unitcount[b]) then
+						if (foundunits >= targetcount) then
 							break
 						end
 					end
 					
-					if (foundunits < unitcount[b]) and (alreadyfound[bcode] == nil) then
+					if (foundunits < targetcount) and (alreadyfound[bcode] == nil) then
 						alreadyfound[bcode] = 1
 						allfound = allfound + 1
 					end

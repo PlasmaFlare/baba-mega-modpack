@@ -440,7 +440,7 @@ function isgone(unitid)
 		local x,y,name = unit.values[XPOS],unit.values[YPOS],unit.strings[UNITNAME]
 		
 		if (unit.strings[UNITTYPE] == "text") then
-			name = "text"
+			-- name = "text"
 		end
 		
 		-- Added check for ALIVE here

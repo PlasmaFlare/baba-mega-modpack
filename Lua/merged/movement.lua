@@ -170,7 +170,8 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 				local empty = {}
 				local empty2 = {}
 				local empty3 = {}
-				
+
+				arrow_prop_mod_globals.group_arrow_properties = false
 				if (playerid == 1) then -- EDIT: add support for X/EMPTY IS VESSEL/VESSEL2
 					players,empty = ws_findVessels()
 
@@ -1746,9 +1747,10 @@ function move(unitid,ox,oy,dir,specials_,instant_,simulate_,x_,y_)
 						if effect1 or effect2 then
 							local pmult,sound = checkeffecthistory("unlock")
 							soundshort = sound
-							if issafe(unitid,x,y) and (b ~= 2) and (unitid ~= 2) then -- EDIT: set karma for OPEN/SHUT
+							if (issafe(unitid,x,y) or is_unit_guarded(unitid)) and (b ~= 2) and (unitid ~= 2) then -- EDIT: set karma for OPEN/SHUT
 								ws_setKarma(unitid)
-							elseif issafe(b,bx,by) and (b ~= 2) and (unitid ~= 2) then
+							end
+							if (issafe(b,bx,by) or is_unit_guarded(b)) and (b ~= 2) and (unitid ~= 2) then
 								ws_setKarma(b)
 							end
 						end

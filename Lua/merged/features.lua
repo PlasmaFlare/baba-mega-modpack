@@ -149,65 +149,99 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 			result. The global "arrow_prop_mod_globals.group_arrow_properties" is set to false whenever we want to 
 			search specifically for a non arrow property.
 	 ]]
-	if (featureindex[rule1] ~= nil) and (rule2 ~= nil) and (rule3 ~= nil) then
-		for i,rules in ipairs(featureindex[rule1]) do
-			local rule = rules[1]
-			local conds = rules[2]
-			
-			if (conds[1] ~= "never") then
-				if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3) then
-					if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
-						is_nontrivial_check = true
+	if (rule1 ~= nil) and (rule2 ~= nil) and (rule3 ~= nil) then
+		if (featureindex[rule1] ~= nil) then
+			for i,rules in ipairs(featureindex[rule1]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3) then
+						if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
+							is_nontrivial_check = true
+						end
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true, is_nontrivial_check
+						end
 					end
-					if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
-						return true, is_nontrivial_check
+				end
+			end
+		end
+	
+		if (string.sub(rule1,1,5) == "text_") and (featureindex["text"] ~= nil) then
+			for i,rules in ipairs(featureindex["text"]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == "text") and (rule[2] == rule2) and (rule[3] == rule3) then
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true
+						end
 					end
 				end
 			end
 		end
 	end
 	
-	if (featureindex[rule3] ~= nil) and (rule2 ~= nil) and (rule1 ~= nil) then
-		for i,rules in ipairs(featureindex[rule3]) do
-			local rule = rules[1]
-			local conds = rules[2]
-			
-			if (conds[1] ~= "never") then
-				if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3) then
-					if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
-						is_nontrivial_check = true
-					end
-					if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
-						return true, is_nontrivial_check
+	if (rule3 ~= nil) and (rule2 ~= nil) and (rule1 ~= nil) then
+		if (featureindex[rule3] ~= nil) then
+			for i,rules in ipairs(featureindex[rule3]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3) then
+						if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
+							is_nontrivial_check = true
+						end
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true, is_nontrivial_check
+						end
 					end
 				end
 			end
 		end
-    end
-    
-    -- @Turning Text -----------------------------
-    if arrow_prop_mod_globals.group_arrow_properties and arrow_properties[rule3] then
-        for i,dirfeature in ipairs(dirfeaturemap) do
-            if (featureindex[rule3..dirfeature] ~= nil) and (rule2 ~= nil) and (rule1 ~= nil) then
-                for i,rules in ipairs(featureindex[rule3..dirfeature]) do
-                    local rule = rules[1]
-                    local conds = rules[2]
-                    
-                    if (conds[1] ~= "never") then
-                        if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3..dirfeature) then
-							if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
-								is_nontrivial_check = true
+		
+		-- @Turning Text -----------------------------
+		if arrow_prop_mod_globals.group_arrow_properties and arrow_properties[rule3] then
+			for i,dirfeature in ipairs(dirfeaturemap) do
+				if (featureindex[rule3..dirfeature] ~= nil) and (rule2 ~= nil) and (rule1 ~= nil) then
+					for i,rules in ipairs(featureindex[rule3..dirfeature]) do
+						local rule = rules[1]
+						local conds = rules[2]
+						
+						if (conds[1] ~= "never") then
+							if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == rule3..dirfeature) then
+								if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
+									is_nontrivial_check = true
+								end
+								if testcond(conds,unitid,x,y,nil,nil,checkedconds) then
+									return true
+								end
 							end
-                            if testcond(conds,unitid,x,y,nil,nil,checkedconds) then
-                                return true
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    ----------------------------------
+						end
+					end
+				end
+			end
+		end
+		----------------------------------
+	
+		if (string.sub(rule3,1,5) == "text_") and (featureindex["text"] ~= nil) then
+			for i,rules in ipairs(featureindex["text"]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == "text") then
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true
+						end
+					end
+				end
+			end
+		end
+	end
 	
 	if (featureindex[rule2] ~= nil) and (rule1 ~= nil) and (rule3 == nil) then
 		local usable = false

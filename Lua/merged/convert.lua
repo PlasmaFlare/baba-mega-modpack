@@ -358,20 +358,18 @@ function doconvert(data,extrarule_)
 				
 				delthis = true
 			elseif (mat2 == "empty") then
-				if testcond(conds,unit.fixed) then
-					addundo({"convert",cdata[1],"empty",ingameid,baseingameid,x,y,dir,unitid,newunitid})
-					updateunitmap(unitid,x,y,x,y,unit.strings[UNITNAME],true,unit.fixed)
-					delthis = true
-					
-					local tileid = x + y * roomsizex
-					if (emptydata[tileid] == nil) then
-						emptydata[tileid] = {}
-					end
-					
-					emptydata[tileid]["conv"] = true
+				addundo({"convert",cdata[1],"empty",ingameid,baseingameid,x,y,dir,unitid,newunitid})
+				updateunitmap(unitid,x,y,x,y,unit.strings[UNITNAME],true,unit.fixed)
+				delthis = true
+				
+				local tileid = x + y * roomsizex
+				if (emptydata[tileid] == nil) then
+					emptydata[tileid] = {}
 				end
+				
+				emptydata[tileid]["conv"] = true
 			elseif (mat2 == "createall") then
-				delthis = createall_single(unitid,conds)
+				delthis = createall_single(unitid)
 			end
 		end
 		
@@ -391,60 +389,65 @@ function doconvert(data,extrarule_)
 			local mat2 = mats2data[1]
 			local i = mats2data[2]
 			local j = mats2data[3]
-			local unitname = unitreference[mat2]
-			local newunitid = MF_emptycreate(unitname,i,j)
-			local newunit = mmf.newObject(newunitid)
 			
-			cdata[1] = "empty"
-			
-			local id = newid()
-			local dir = emptydir(i,j)
-			
-			if (dir == 4) then
-				dir = fixedrandom(0,3)
-			end
-			
-			newunit.values[ONLINE] = 1
-			newunit.values[XPOS] = i
-			newunit.values[YPOS] = j
-			newunit.values[DIR] = dir
-			newunit.values[ID] = id
-			newunit.values[EFFECT] = 1
-			newunit.flags[9] = true
-			newunit.flags[CONVERTED] = true
-			
-			cdata[2] = mat2
-			addundo({"convert",cdata[1],cdata[2],id,id,i,j,dir,nil,newunitid})
-			addundo({"create",mat2,id,-1,"emptyconvert",i,j,dir,nil,newunitid})
-			
-			addunit(newunitid)
-			addunitmap(newunitid,i,j,newunit.strings[UNITNAME])
-			dynamic(newunitid)
-			
-			newunit.originalname = "empty"
-			
-			local tileid = i + j * roomsizex
-			if (emptydata[tileid] == nil) then
-				emptydata[tileid] = {}
-			end
-			
-			emptydata[tileid]["conv"] = true
-			
-			if (newunit.strings[UNITTYPE] == "text") then
-				updatecode = 1
-			else
-				if (featureindex["word"] ~= nil) then
-					for i,v in ipairs(featureindex["word"]) do
-						local rule = v[1]
-						if (rule[1] == newunit.strings[UNITNAME]) then
-							updatecode = 1
-						elseif (unitid ~= 2) then
-							if (rule[1] == unit.strings[UNITNAME]) then
+			if (mat2 ~= "createall") and (mat2 ~= "error") then
+				local unitname = unitreference[mat2]
+				local newunitid = MF_emptycreate(unitname,i,j)
+				local newunit = mmf.newObject(newunitid)
+				
+				cdata[1] = "empty"
+				
+				local id = newid()
+				local dir = emptydir(i,j)
+				
+				if (dir == 4) then
+					dir = fixedrandom(0,3)
+				end
+				
+				newunit.values[ONLINE] = 1
+				newunit.values[XPOS] = i
+				newunit.values[YPOS] = j
+				newunit.values[DIR] = dir
+				newunit.values[ID] = id
+				newunit.values[EFFECT] = 1
+				newunit.flags[9] = true
+				newunit.flags[CONVERTED] = true
+				
+				cdata[2] = mat2
+				addundo({"convert",cdata[1],cdata[2],id,id,i,j,dir,nil,newunitid})
+				addundo({"create",mat2,id,-1,"emptyconvert",i,j,dir,nil,newunitid})
+				
+				addunit(newunitid)
+				addunitmap(newunitid,i,j,newunit.strings[UNITNAME])
+				dynamic(newunitid)
+				
+				newunit.originalname = "empty"
+				
+				local tileid = i + j * roomsizex
+				if (emptydata[tileid] == nil) then
+					emptydata[tileid] = {}
+				end
+				
+				emptydata[tileid]["conv"] = true
+				
+				if (newunit.strings[UNITTYPE] == "text") then
+					updatecode = 1
+				else
+					if (featureindex["word"] ~= nil) then
+						for i,v in ipairs(featureindex["word"]) do
+							local rule = v[1]
+							if (rule[1] == newunit.strings[UNITNAME]) then
 								updatecode = 1
+							elseif (unitid ~= 2) then
+								if (rule[1] == unit.strings[UNITNAME]) then
+									updatecode = 1
+								end
 							end
 						end
 					end
 				end
+			elseif (mat2 == "createall") then
+				createall_single(2,nil,i,j)
 			end
 		end
 	end
@@ -499,7 +502,7 @@ function convert(stuff,mats,dolevels_)
 							if (reverting == false) then
 								local objectfound = false
 								
-								if (unitreference[mat2] ~= nil) and (mat2 ~= "level") and (mat2 ~= "createall") then
+								if (unitreference[mat2] ~= nil) and (mat2 ~= "level") then
 									local object = unitreference[mat2]
 									
 									if (tileslist[object]["name"] == mat2) and ((changes[object] == nil) or (changes[object]["name"] == nil)) then
@@ -601,7 +604,7 @@ function convert(stuff,mats,dolevels_)
 										objectfound = true
 									end
 								end
-							elseif (mat2 == "level") then
+							elseif (mat2 ~= "revert") then
 								objectfound = true
 							end
 

@@ -8,8 +8,6 @@
  ]]
 
 
-MF_winbackup = MF_win
-enddata = nil
 persists = {}
 levelpersist = {}
 persistreverts = {}
@@ -20,10 +18,34 @@ persistbaserulestoadd = {}
 prevpersists = {}
 prevlevelpersist = {}
 
+local enable_persist_in_editor = false
 local persist_stablerules = {}
 local utils = PlasmaModules.load_module("general/utils")
 
 exitedlevel = false
+
+local function clearpersists()
+	persists = {}
+	levelpersist = {}
+	persistreverts = {}
+	persistrevert = nil
+	persistbaserules = {}
+	persistbaserulestoadd = {}
+
+	prevpersists = {}
+	prevlevelpersist = {}
+
+	persist_stablerules = {}
+end
+clearpersists()
+
+function apply_persist_settings(settings_dict)
+	for setting_name, value in pairs(settings_dict) do
+		if setting_name == "allow_persist_in_editor" then
+			enable_persist_in_editor = value
+		end
+	end
+end
 
 function getprevpersists()
 	persists = {}
@@ -136,6 +158,12 @@ function findpersistrules()
 end
 
 function findpersists(reason)
+	if not enable_persist_in_editor and editor.values[INEDITOR] ~= 0 then
+		-- A value of zero seems to indicate that we are actually playing the level in game, not in the editor, nor in a single level
+		clearpersists()
+		return
+	end
+
 	if reason ~= "levelentry" then
 		prevpersists = {}
 		prevlevelpersist = {}
@@ -262,9 +290,7 @@ table.insert(mod_hook_functions["level_start"],
 		GLOBAL_checking_stable = false
 
 		if updatecode == 1 then
-			print(">>>>calling code in stable persist")
 			code(alreadyrun_)
-			print(">>>>end code in stable persist")
 		end
 	end
 )

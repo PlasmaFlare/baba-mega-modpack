@@ -42,7 +42,7 @@ table.insert(mod_hook_functions["level_start"],
 
 -- Checks if the given property is a "player" property
 function ws_isPlayerProp(property)
-	return prop_ == "you" or prop_ == "you2" or prop_ == "3d" or prop_ == "alive"
+	return property == "you" or property == "you2" or property == "3d" or property == "alive"
 end
 
 
@@ -189,7 +189,7 @@ function ws_karma(x, y, reason, victimid, delthese, removalshort, removalsound)
 	elseif reason == "weak" then
 		local others = findallhere(x,y) -- Get all the other overlapping items
 		for _,otherid in ipairs(others) do
-			if floating(otherid,victimid,x,y) then
+			if floating(otherid,victimid,x,y) and otherid ~= victimid then
 				delthese,removalshort,removalsound = ws_setKarmaOrDestroy(x,y,otherid,delthese,removalshort,removalsound)
 			end
 		end
@@ -215,12 +215,21 @@ function ws_karma(x, y, reason, victimid, delthese, removalshort, removalsound)
 			end
 		end
 	elseif reason == "sink2" then -- Object that is SINK got sinked by something else
-		local sinkerfeatures = findfeatureat(nil,"is","safe",x,y) -- Only the survived items are to blame
-		for _,sinkerid in ipairs(sinkerfeatures) do
-			if floating(sinkerid,victimid,x,y) then -- Only the skulls on the same float level of the defeated object are evil
-				ws_setKarma(sinkerid) -- The sinker is safe, we can directly set its karma
+		-- @mods(word salad x plasma) - rewrote this entire section since guard allows units to still survive while not being "safe".
+		local others = findallhere(x,y) -- Get all the other overlapping items
+		for _,otherid in ipairs(others) do
+			if otherid ~= victimid and floating(otherid,victimid,x,y) then -- Only scan objects that aren't the victim with the same float level
+				if is_unit_guarded(otherid) or issafe(otherid) then -- Objects that survive (either through SAFE or GUARD) after the sink action are evil
+					ws_setKarma(otherid)
+				end
 			end
 		end
+		-- local sinkerfeatures = findfeatureat(nil,"is","safe",x,y) -- Only the survived items are to blame
+		-- for _,sinkerid in ipairs(sinkerfeatures) do
+		-- 	if floating(sinkerid,victimid,x,y) then -- Only the skulls on the same float level of the defeated object are evil
+		-- 		ws_setKarma(sinkerid) -- The sinker is safe, we can directly set its karma
+		-- 	end
+		-- end
 	end
 	return delthese, removalshort, removalsound
 end
@@ -244,11 +253,13 @@ function ws_setKarmaOrDestroy(x, y, karmaid, delthese, removalshort, removalsoun
 
 		--[[ 
 			@mods(word_salad x plasma) - The below line wasn't added in the original word salad since at this point in the
-			code, the karma unit is set to be destroyed. Why bother update the karma status when the unit will be destroyed?
+			code, the karma unit is set to be destroyed. Why bother updating the karma status when the unit will be destroyed?
 			Guard however can "rescue" the karma unit from actually being destroyed, meaning the karma unit is in
 			delthese but the unit survives. So we still need to update the unit's karma status.
 		]]
-		ws_setKarma(karmaid)
+		if is_unit_guarded(karmaid) then
+			ws_setKarma(karmaid)
+		end
 	else
 		ws_setKarma(karmaid)
 	end

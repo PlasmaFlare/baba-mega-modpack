@@ -1,15 +1,94 @@
-local mega_modpack_version = "1.1.0"
+local mega_modpack_version = "1.1.1"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
 local mod_list = {
-    {name = "Plasma's Modpack", author = "Plasmaflare", color={4,4}},
-    {name = "Patashu's Modpack", author = "Patashu", color={3,1}},
-    {name = "Persist", author = "Randomizer", color={0,3}},
-    {name = "Past", author = "Emily (Aka. EvanEMV)", color={3,1}},
-    {name = "Stringwords", author = "Wrecking Games", color={3,4}},
-    {name = "Word Salad", author = "Huebird", color={2,1}},
+    {name = "Plasma's Modpack",     author = "Plasmaflare",             color={4,4}},
+    {name = "Patashu's Modpack",    author = "Patashu",                 color={3,1}},
+    {name = "Persist",              author = "Randomizer",              color={0,3}},
+    {name = "Past",                 author = "Emily",                   color={3,1}},
+    {name = "Stringwords",          author = "Wrecking Games",          color={3,4}},
+    {name = "Word Salad",           author = "Huebird",                 color={2,1}},
 }
+
+local mod_setting_data = {
+    persist = {
+        key = "persist_settings",
+        button_label = "Persist Settings",
+        page_title = "$0,3Persist Settings",
+        cfg_section = "Persist",
+        color = {0,3},
+        settings_apply_func = apply_persist_settings,
+        settings = {
+            allow_persist_in_editor = {
+                name = "allow_persist_in_editor",
+                display = "Allow persist in editor",
+                default = 0,
+                buttonfunc = "ws_persistInEditor",
+                tooltip = "While in editor, allows the effects of PERSIST to carry over to the next level you play. Good for testing but can easily get chaotic."
+            },
+        },
+        settings_order = {"allow_persist_in_editor"}
+    },
+    patashu = {
+        key = "patashu_settings",
+        button_label = "Patashu's Modpack Settings",
+        page_title = "$3,1Patashu's$0,3 Modpack Settings",
+        cfg_section = "Patashu's Mods",
+        color = {3,1},
+        settings_apply_func = apply_patashu_settings,
+        settings = {
+            very_drunk = {
+                name = "very_drunk",
+                display = "Very drunk",
+                default = 1,
+                buttonfunc = "patashudrunk",
+                tooltip = "If true, MOONWALK and related properties (DRUNK, DRUNKER, SKIP) apply to PUSH, PULL, SHIFT, YEET and more. Defaults to true"
+            },
+            float_breaks_sticky = {
+                name = "float_breaks_sticky",
+                display = "Float breaks sticky",
+                default = 1,
+                buttonfunc = "patashufloatsticky",
+                tooltip = "If true, two things at different float values can't stick together. Defaults to true"
+            },
+            very_sticky = {
+                name = "very_sticky",
+                display = "Very sticky",
+                default = 0,
+                buttonfunc = "patashusticky",
+                tooltip = "If true, two things with different names can stick together. Defaults to false"
+            },
+        },
+        settings_order = {"very_drunk", "float_breaks_sticky", "very_sticky"},
+    },
+    word_salad = {
+        key = "word_salad_settings",
+        button_label = "Word Salad Settings",
+        page_title = "$2,1Word Salad$0,3 Settings",
+        cfg_section = "Word Salad",
+        color = {2,1},
+        settings_apply_func = apply_word_salad_settings,
+        settings = {
+            music_when_only_vessels = {
+                name = "music_when_only_vessels",
+                display = "Music when only vessels",
+                default = 0,
+                buttonfunc = "ws_musicOnOnlyVessels",
+                tooltip = "If true, the music will still play when there are only vessels on the level"
+            },
+            do_hop_particles = {
+                name = "do_hop_particles",
+                display = "Do hop particles",
+                default = 1,
+                buttonfunc = "ws_hopParticles",
+                tooltip = "If true, objects that are HOP will spawn some particles after a successful jump"
+            },
+        },
+        settings_order = {"music_when_only_vessels", "do_hop_particles"}
+    },
+}
+local mod_setting_order = {"patashu", "word_salad", "persist"}
 
 local function setfenv(fn, env)
     local i = 1
@@ -95,8 +174,6 @@ menufuncs.mega_modpack_settings = {
 
         write_settings_header("Mega Modpack Settings", 0, 3, name)
 
-        
-        -- Render sub-settings buttons
         local item_x = screenw * 0.1
         local item_y = f_tilesize
         createbutton("mega_mod_return",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
@@ -105,11 +182,12 @@ menufuncs.mega_modpack_settings = {
         item_y = item_y + f_tilesize * 3        
         make_plasma_button("pfsettings", name, buttonid, "Plasma Modpack Settings", item_x,item_y, false)
         item_y = item_y + f_tilesize * 2
-        make_plasma_button("patashu_settings", name, buttonid, "Patashu's Modpack Settings", item_x,item_y, false)
-        item_y = item_y + f_tilesize * 2
-        make_plasma_button("word_salad_settings", name, buttonid, "Word Salad Settings", item_x,item_y, false)
-        item_y = item_y + f_tilesize * 2
 
+        for _, mod_name in ipairs(mod_setting_order) do
+            local mod_data = mod_setting_data[mod_name]
+            make_plasma_button(mod_data.key, name, buttonid, mod_data.button_label, item_x,item_y, false)
+            item_y = item_y + f_tilesize * 2
+        end
 
         item_x = screenw * 0.5
         item_y = f_tilesize * 4
@@ -141,180 +219,101 @@ buttonclick_list["pfreturn"] = function()
     changemenu("mega_modpack_settings")
 end
 
-buttonclick_list["patashu_settings"] = function()
-    changemenu("patashu_settings")
-end
+local gd = nil
 
-buttonclick_list["word_salad_settings"] = function()
-    changemenu("word_salad_settings")
-end
+for name, data in pairs(mod_setting_data) do
+    local mod_name, mod_data = name, data
+    local revert_settings_key = "revert_"..mod_data.key
 
+    menufuncs[mod_data.key] = {
+        button = "test",
+        escbutton = "mega_modpack_settings",
+        slide = {1,0},
+        enter = function(parent,name,buttonid,extra)
+            MF_letterclear("leveltext")
+            MF_cursorvisible(0) -- Letting this be off until Hempuli fixes "escbutton" field not working
+    
+            write_settings_header(mod_data.page_title, mod_data.color[1], mod_data.color[2], name)
+    
+            local item_x = screenw * 0.1
+            local item_y = f_tilesize
+            createbutton("mega_modpack_settings",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
+            item_y = item_y + f_tilesize * 3 
+    
+            for _, setting_name in ipairs(mod_data.settings_order) do
+                local data = mod_data.settings[setting_name]
+                local toggle = read_setting(mod_data.cfg_section, data)
+                local togglevalue, color = gettoggle(toggle)
+                make_plasma_button(data.buttonfunc, name, buttonid, data.display, item_x, item_y, togglevalue, data.tooltip)
+                
+                item_y = item_y + f_tilesize * 2
+            end
 
+            item_y = screenh - f_tilesize
+            make_plasma_button(revert_settings_key, name, buttonid, "Restore default settings", 20, item_y)
 
---[[ PATASHU SETTINGS ]]
-local patashu_settings = {
-    very_drunk = {
-        name = "very_drunk",
-        display = "Very drunk",
-        default = 1,
-        buttonfunc = "patashudrunk",
-        tooltip = "If true, MOONWALK and related properties (DRUNK, DRUNKER, SKIP) apply to PUSH, PULL, SHIFT, YEET and more. Defaults to true"
-    },
-    float_breaks_sticky = {
-        name = "float_breaks_sticky",
-        display = "Float breaks sticky",
-        default = 1,
-        buttonfunc = "patashufloatsticky",
-        tooltip = "If true, two things at different float values can't stick together. Defaults to true"
-    },
-    very_sticky = {
-        name = "very_sticky",
-        display = "Very sticky",
-        default = 0,
-        buttonfunc = "patashusticky",
-        tooltip = "If true, two things with different names can stick together. Defaults to false"
-    },
-}
-local patashu_settings_order = {"very_drunk", "float_breaks_sticky", "very_sticky"}
-local patashu_settings_section = "Patashu's Mods"
+            gd = MF_create("object001")
+            MF_loadsprite(gd,"text_persist_0",27,true)
+            local testunit = mmf.newObject(gd)
+            testunit.layer = 2
+            testunit.direction = 27
+            testunit.values[XPOS] = 619
+            testunit.values[YPOS] = 294
+            testunit.values[ONLINE] = 1
+        end,
+        leave = function(parent,name)
+            MF_cleanremove(gd)
+            gd = nil
+        end
+    }
 
-menufuncs.patashu_settings = {
-    button = "PatashuModpackSettings",
-    escbutton = "mega_return",
-    slide = {1,0},
-    enter = function(parent,name,buttonid,extra)
-        MF_letterclear("leveltext")
-        MF_cursorvisible(0) -- Letting this be off until Hempuli fixes "escbutton" field not working
-
-        write_settings_header("$3,1Patashu's$0,3 Modpack Settings", 3, 1, name)
-
-        local item_x = screenw * 0.1
-        local item_y = f_tilesize
-        createbutton("pfreturn",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
-        item_y = item_y + f_tilesize * 3 
-
-        for _, setting_name in ipairs(patashu_settings_order) do
-            local data = patashu_settings[setting_name]
-            local toggle = read_setting(patashu_settings_section, data)
+    for setting_name, data in pairs(mod_data.settings) do
+        buttonclick_list[data.buttonfunc] = function()
+            local toggle = read_setting(mod_data.cfg_section, data)
             local togglevalue, color = gettoggle(toggle)
-            make_plasma_button(data.buttonfunc, name, buttonid, data.display, item_x, item_y, togglevalue, data.tooltip)
-            
-            item_y = item_y + f_tilesize * 2
+    
+            if togglevalue == 1 then
+                togglevalue = 0
+            else
+                togglevalue = 1
+            end
+            MF_store("world", mod_data.cfg_section, setting_name, togglevalue)
+    
+            local buttons = MF_getbutton(data.buttonfunc)
+            for i,unitid in ipairs(buttons) do
+                updatebuttoncolour(unitid, togglevalue)
+            end
         end
     end
-}
 
-for setting_name, data in pairs(patashu_settings) do
-    buttonclick_list[data.buttonfunc] = function()
-        local toggle = read_setting(patashu_settings_section, data)
-        local togglevalue, color = gettoggle(toggle)
-
-        if togglevalue == 1 then
-            togglevalue = 0
-        else
-            togglevalue = 1
-        end
-        MF_store("world", patashu_settings_section, setting_name, togglevalue)
-
-        local buttons = MF_getbutton(data.buttonfunc)
-        for i,unitid in ipairs(buttons) do
-            updatebuttoncolour(unitid, togglevalue)
-        end
+    buttonclick_list[mod_data.key] = function()
+        changemenu(mod_data.key)
     end
-end
 
---[[ WORD SALAD SETTINGS ]]
-local word_salad_settings = {
-    music_when_only_vessels = {
-        name = "music_when_only_vessels",
-        display = "Music when only vessels",
-        default = 0,
-        buttonfunc = "ws_musicOnOnlyVessels",
-        tooltip = "If true, the music will still play when there are only vessels on the level"
-    },
-    do_hop_particles = {
-        name = "do_hop_particles",
-        display = "Do hop particles",
-        default = 1,
-        buttonfunc = "ws_hopParticles",
-        tooltip = "If true, objects that are HOP will spawn some particles after a successful jump"
-    },
-}
-
-local word_salad_settings_order = {"music_when_only_vessels", "do_hop_particles"}
-local word_salad_settings_section = "Word Salad"
-
-menufuncs.word_salad_settings = {
-    button = "WordSaladSettings",
-    escbutton = "pfreturn",
-    slide = {1,0},
-    enter = function(parent,name,buttonid,extra)
-        MF_letterclear("leveltext")
-        MF_cursorvisible(0) -- Letting this be off until Hempuli fixes "escbutton" field not working
-
-        write_settings_header("$2,1Word Salad$0,3 Settings", 2, 1, name)
-
-        local item_x = screenw * 0.1
-        local item_y = f_tilesize
-        createbutton("pfreturn",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
-        item_y = item_y + f_tilesize * 3 
-
-        for _, setting_name in ipairs(word_salad_settings_order) do
-            local data = word_salad_settings[setting_name]
-            local toggle = read_setting(word_salad_settings_section, data)
-            local togglevalue, color = gettoggle(toggle)
-            make_plasma_button(data.buttonfunc, name, buttonid, data.display, item_x, item_y, togglevalue, data.tooltip)
-            
-            item_y = item_y + f_tilesize * 2
-        end
-    end
-}
-
-for setting_name, data in pairs(word_salad_settings) do
-    buttonclick_list[data.buttonfunc] = function()
-        local toggle = read_setting(word_salad_settings_section, data)
-        local togglevalue, color = gettoggle(toggle)
-
-        if togglevalue == 1 then
-            togglevalue = 0
-        else
-            togglevalue = 1
-        end
-        MF_store("world", word_salad_settings_section, setting_name, togglevalue)
-
-        local buttons = MF_getbutton(data.buttonfunc)
-        for i,unitid in ipairs(buttons) do
-            updatebuttoncolour(unitid, togglevalue)
+    buttonclick_list[revert_settings_key] = function()
+        for setting_name, data in pairs(mod_data.settings) do
+            local value = data.default
+            MF_store("world", mod_data.cfg_section, setting_name, value)
+            local buttons = MF_getbutton(data.buttonfunc)
+            for i,unitid in ipairs(buttons) do
+                updatebuttoncolour(unitid, value)
+            end
         end
     end
 end
 
 table.insert(mod_hook_functions["level_start"], 
     function()
-        for setting_name, data in pairs(patashu_settings) do
-            local value = read_setting(patashu_settings_section, data)
-            local togglevalue = gettoggle(value)
+        for mod_name, mod_data in pairs(mod_setting_data) do
+            local settings_dict = {}
+            for setting_name, data in pairs(mod_data.settings) do
+                local value = read_setting(mod_data.cfg_section, data)
+                local togglevalue = gettoggle(value) == 1
 
-            if setting_name == "very_drunk" then
-                very_drunk = togglevalue == 1
-            elseif setting_name == "float_breaks_sticky" then
-                float_breaks_sticky = togglevalue == 1
-            elseif setting_name == "very_sticky" then
-                very_sticky = togglevalue == 1
+                settings_dict[setting_name] = value
             end
 
-        end
-
-        for setting_name, data in pairs(word_salad_settings) do
-            local value = read_setting(word_salad_settings_section, data)
-            local togglevalue = gettoggle(value)
-
-            if setting_name == "music_when_only_vessels" then
-                MUSIC_WHEN_ONLY_VESSELS = togglevalue == 1
-            elseif setting_name == "do_hop_particles" then
-                DO_HOP_PARTICLES = togglevalue == 1
-            end
-
-        end
+            mod_data.settings_apply_func(settings_dict)
+        end        
     end
 )

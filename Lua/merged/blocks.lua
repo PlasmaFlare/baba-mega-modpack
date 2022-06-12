@@ -314,8 +314,6 @@ function moveblock(onlystartblock_)
 											end
 										end
 										
-										local uname = getname(newunit)
-										
 										if (#undowordrelatedunits > 0) then
 											for a,b in ipairs(undowordrelatedunits) do
 												if (b == bline[6]) then
@@ -350,6 +348,7 @@ function moveblock(onlystartblock_)
 		for i,unitid in ipairs(istele) do
 			if (isgone(unitid) == false) then
 				local unit = mmf.newObject(unitid)
+				-- METATEXT
 				local name = getname(unit)
 				local x,y = unit.values[XPOS],unit.values[YPOS]
 			
@@ -361,7 +360,7 @@ function moveblock(onlystartblock_)
 					for i,v in ipairs(targets) do
 						local vunit = mmf.newObject(v)
 						local thistype = vunit.strings[UNITTYPE]
-						local vname = getname(vunit)
+						local vname = vunit.strings[UNITNAME]
 						
 						local targetvalid = isgone(v)
 						local targetstill = hasfeature(vname,"is","still",v,x,y)
@@ -531,7 +530,7 @@ function block(small_)
 		for id,unit in ipairs(ismore) do
 			local x,y = unit.values[XPOS],unit.values[YPOS]
 			local unitid = unit.fixed
-			local name = getname(unit)
+			local name = unit.strings[UNITNAME]
 			local doblocks = {}
 			
 			for i=1,4 do
@@ -549,7 +548,7 @@ function block(small_)
 							valid = false
 						elseif (b ~= 0) and (b ~= -1) then
 							local bunit = mmf.newObject(b)
-							local obsname = getname(bunit)
+							local obsname = bunit.strings[UNITNAME]
 							
 							local obsstop = hasfeature(obsname,"is","stop",b,x+ox,y+oy) or (featureindex["stops"] ~= nil and hasfeature(obsname,"stops",name,b,x+ox,y+oy)) or hasfeature(obsname,"is","sidekick",b,x+ox,y+oy) or (featureindex["hates"] ~= nil and hasfeature(name,"hates",obsname,unitid,x,y)) or (hasfeature(obsname,"is","oneway",b) and oxoytodir(ox,oy) == rotate(bunit.values[DIR]))
 							if (obsstop == false) then
@@ -729,7 +728,7 @@ function block(small_)
 								
 								if (safe1 == false) then
 									table.insert(delthese, b)
-									if safe2 then -- EDIT: implement karma for SINK
+									if safe2 or is_unit_guarded(unit.fixed) then -- EDIT: implement karma for SINK
 										delthese,removalshort,removalsound = ws_karma(x,y,"sink",b,delthese,removalshort,removalsound)
 									end
 								end
@@ -742,7 +741,7 @@ function block(small_)
 								
 								if (b ~= unit.fixed) and (safe2 == false) then
 									sunk = true
-									if safe1 then -- EDIT: implement karma for SINK
+									if safe1 or is_unit_guarded(b) then -- EDIT: implement karma for SINK
 										delthese,removalshort,removalsound = ws_karma(x,y,"sink2",unit.fixed,delthese,removalshort,removalsound)
 									end
 								end
@@ -769,6 +768,10 @@ function block(small_)
 				local x,y = unit.values[XPOS],unit.values[YPOS]
 				local things = findtype({v,nil},x,y,unit.fixed)
 				local sunk = false
+
+				-- @mods(patashu) - apparently in patashu's modpack, sinks doesn't work with safe. So additing that here.
+				local sinker_is_safe = issafe(unit.fixed)
+
 				if (#things > 0) then
 					for a,b in ipairs(things) do
 						if (issafe(b) == false) and floating(b,unit.fixed,x,y) and (b ~= unit.fixed) and (issinksed[b] == nil) then
@@ -782,10 +785,14 @@ function block(small_)
 							removalsound = 3
 							local c1,c2 = getcolour(unit.fixed)
 							MF_particles("destroy",x,y,15 * pmult,c1,c2,1,1)
+
+							if sinker_is_safe or is_unit_guarded(unit.fixed) then
+								ws_setKarma(unit.fixed)
+							end
 						end
 					end
 				end
-				if sunk then
+				if sunk and not sinker_is_safe then
 					table.insert(delthese, unit.fixed)
 				end
 			end
@@ -811,7 +818,7 @@ function block(small_)
 		
 		-- @mods(turning text)
 		arrow_prop_mod_globals.group_arrow_properties = false
-		local name = getname(unit)
+		local name = unit.strings[UNITNAME]
 		local count = hasfeature_count(name,"is","boom",unit.fixed,ux,uy)
 		local dim = math.min(count - 1, math.max(roomsizex, roomsizey))
 		arrow_prop_mod_globals.group_arrow_properties = true
@@ -876,7 +883,7 @@ function block(small_)
 									end
 								end
 								
-								if (sunk == false) and (issafe(f) == false) then
+								if (sunk == false or is_unit_guarded(unit.fixed)) and (issafe(f) == false) then
 									ws_setKarma(unit.fixed)
 								end
 								
@@ -1007,6 +1014,9 @@ function block(small_)
 							removalshort = sound
 							removalsound = 9
 							table.insert(delthese, b)
+
+							-- @mods(word salad x patashu): implement karma for MELTS. The thing that "melts" another is to blame.
+							ws_setKarma(unit.fixed)
 						end
 					end
 				end
@@ -1050,7 +1060,7 @@ function block(small_)
 							if (d ~= unit.fixed) then
 								if floating(d,unit.fixed,x,y) then
 									local kunit = mmf.newObject(d)
-									local kname = getname(kunit)
+									local kname = kunit.strings[UNITNAME]
 									
 									local weakskull = hasfeature(kname,"is","weak",d)
 									
@@ -1107,6 +1117,9 @@ function block(small_)
 								removalshort = sound
 								removalsound = 1
 								table.insert(delthese, unit.fixed)
+
+								-- @mods(word salad x patashu): implement karma for DEFEATS. The thing that "defeats" another is to blame.
+								ws_setKarma(d)
 							end
 						end
 					end
@@ -1176,18 +1189,25 @@ function block(small_)
 				local sunk = false
 				if (#things > 0) then
 					local doparts = false
-					for a,b in ipairs(things) do
+					for a,b in ipairs(things) do  -- @mods(word salad x patashu): add KARMA for OPENs/SHUT
 						if (b ~= 0) and floating(b,unit.fixed,x,y) then
-							if (issafe(unit.fixed) == false) then
+							local isKeyUnsafe = (b ~= unit.fixed) and (issafe(b) == false)
+							local isDoorUnsafe = (issafe(unit.fixed) == false)
+							
+							if isDoorUnsafe then
 								generaldata.values[SHAKE] = 8
 								table.insert(delthese, unit.fixed)
 								doparts = true
 								online = false
+							elseif isKeyUnsafe then -- Door is safe, key isn't
+								ws_setKarma(unit.fixed)
 							end
 							
-							if (b ~= unit.fixed) and (issafe(b) == false) then
+							if isKeyUnsafe then
 								table.insert(delthese, b)
 								doparts = true
+							elseif isDoorUnsafe then -- Key is safe, door isn't
+								ws_setKarma(b)
 							end
 							
 							if doparts then
@@ -1570,6 +1590,7 @@ function levelblock()
 	local delthese = {}
 	local edelthese = {}
 	local emptythings = {}
+	local level_obj = plasma_utils.make_object(1)
 	
 	if (destroylevel_check == false) then
 		if (featureindex["level"] ~= nil) then
@@ -1799,7 +1820,7 @@ function levelblock()
 								if testcond(conds,2,i,j) and floating_level(2,i,j) then
 									local pmult,sound = checkeffecthistory("eat")
 									setsoundname("removal",1,sound)
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -2041,7 +2062,7 @@ function levelblock()
 									if (d == "level") and (#unitlists["level"] > 0) and (lsafe == false) then
 										local pmult,sound = checkeffecthistory("eat")
 										setsoundname("removal",1,sound)
-										local is_guarded = ack_endangered_unit(1)
+										local is_guarded = ack_endangered_unit(level_obj)
 										if not is_guarded then
 											destroylevel()
 											return
@@ -2092,7 +2113,7 @@ function levelblock()
 						if (#dothese > 0) and (lsafe == false) then
 							local pmult,sound = checkeffecthistory("eat")
 							setsoundname("removal",1,sound)
-							local is_guarded = ack_endangered_unit(1)
+							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
 								return
@@ -2526,7 +2547,7 @@ function levelblock()
 									if (#allyous > 0) then
 										for c,d in ipairs(allyous) do
 											if (issafe(1) == false) and floating_level(d) then
-												local is_guarded = ack_endangered_unit(1)
+												local is_guarded = ack_endangered_unit(level_obj)
 												if not is_guarded then
 													destroylevel()
 													return
@@ -2535,7 +2556,7 @@ function levelblock()
 										end
 									end
 								elseif testcond(b[2],1) and (lsafe == false) then
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -2545,7 +2566,7 @@ function levelblock()
 						end
 						
 						if ((#findallfeature("empty","is","defeat") > 0)) and floating_level(2) and (lsafe == false) then
-							local is_guarded = ack_endangered_unit(1)
+							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
 								return
@@ -2588,6 +2609,28 @@ function levelblock()
 									end
 								elseif testcond(b[2],1) then
 									canend = true
+								end
+							end
+						end
+
+						if (bonus ~= nil) then
+							for a,b in ipairs(bonus) do
+								local allbonus = findall(b)
+								
+								if (#allbonus > 0) then
+									for c,d in ipairs(allbonus) do
+										if (issafe(d) == false) and floating_level(d) then
+											local unit = mmf.newObject(d)
+											
+											local pmult,sound = checkeffecthistory("bonus")
+											MF_particles("bonus",unit.values[XPOS],unit.values[YPOS],10 * pmult,4,1,1,1)
+											MF_playsound("bonus")
+											canbonus = true
+											generaldata.values[SHAKE] = 2
+											setsoundname("removal",2,sound)
+											delete(d)
+										end
+									end
 								end
 							end
 						end
@@ -2661,7 +2704,7 @@ function levelblock()
 										end
 									end
 								elseif testcond(b[2],1) and (lsafe == false) then
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -2677,7 +2720,7 @@ function levelblock()
 							end
 							
 							if floating_level(unit.fixed) and (lsafe == false) then
-								local is_guarded = ack_endangered_unit(1)
+								local is_guarded = ack_endangered_unit(level_obj)
 								if not is_guarded then
 									destroylevel()
 									return
@@ -2737,7 +2780,7 @@ function levelblock()
 								end
 								
 								if doit then
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -2747,7 +2790,7 @@ function levelblock()
 						end
 						
 						if (#findallfeature("empty","is","hot") > 0) and floating_level(2) and (lsafe == false) then
-							local is_guarded = ack_endangered_unit(1)
+							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
 								return
@@ -2780,7 +2823,7 @@ function levelblock()
 								
 								if doit then
 									if (lsafe == false) then
-										local is_guarded = ack_endangered_unit(1)
+										local is_guarded = ack_endangered_unit(level_obj)
 										if not is_guarded then
 											destroylevel()
 											return
@@ -2808,7 +2851,7 @@ function levelblock()
 						end
 						
 						if (#findallfeature("empty","is","shut") > 0) and floating_level(2) and (lsafe == false) then
-							local is_guarded = ack_endangered_unit(1)
+							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
 								return
@@ -2841,7 +2884,7 @@ function levelblock()
 								
 								if doit then
 									if (lsafe == false) then
-										local is_guarded = ack_endangered_unit(1)
+										local is_guarded = ack_endangered_unit(level_obj)
 										if not is_guarded then
 											destroylevel()
 											return
@@ -2869,7 +2912,7 @@ function levelblock()
 						end
 						
 						if (#findallfeature("empty","is","open") > 0) and floating_level(2) and (lsafe == false) then
-							local is_guarded = ack_endangered_unit(1)
+							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
 								return
@@ -2887,7 +2930,7 @@ function levelblock()
 							
 							if floating_level(unit.fixed) then
 								if (lsafe == false) then
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -2929,7 +2972,7 @@ function levelblock()
 							
 							if floating_level(unit.fixed) then
 								if (lsafe == false) then
-									local is_guarded = ack_endangered_unit(1)
+									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
 										return
@@ -3561,7 +3604,7 @@ function effectblock()
 		end
 		
 		if (unit.className ~= "level") then			
-			local name = getname(unit)
+			local name = unit.strings[UNITNAME]
 			local isred = hasfeature(name,"is","red",unit.fixed)
 			local isblue = hasfeature(name,"is","blue",unit.fixed)
 			local islime = hasfeature(name,"is","lime",unit.fixed)

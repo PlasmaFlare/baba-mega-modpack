@@ -12,13 +12,13 @@ When it comes to deciding which mods to merge, there will be several restriction
 ## Alright, serious time over! Where are the goods?!
 ### [Download the modpack in the Releases Section!](https://github.com/PlasmaFlare/baba-mega-modpack/releases)
 
-**Compatable Baba version: 468C on PC**
+**Compatable Baba version: 469 on PC**
 
 The main version currently includes these mods:
 - [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By @Plasmaflare#5648 (me!)
 - [Patashu's Modpack](https://github.com/Patashu/Baba-is-You-Pata-Redux-Mods) - By @Patashu#8123
 - Persist (From the levelpack "Persistence") - By @Randomizer#0769
-- Past - By @EvanEMV#9099
+- Past - By @EmilyEmmi#9099 (Or simply Emily)
 - Stringwords (STARTS/CONTAINS/ENDS) - By @Wrecking Games#8371
 - Word Salad (ALIVE/VESSEL/VESSEL2/KARMA/SINFUL/HOP) - By Huebird#3471
 
@@ -43,6 +43,18 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.1.1** (6/12/22)
+  - Updated for Baba version 469
+  - [PLASMA] Updated for Plasma modpack version 1.5.8 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.8))
+  - [PLASMA] Fixed directional you not working properly
+  - [WORD SALAD] LEVEL interactions with win/defeat didn't work due to a typo
+  - [WORD SALAD] Fixed Karma status incorrectly updating on WEAK object when overlapped
+  - [WORD SALAD x PATASHU] Implemented Karma system for OPENS/MELTS/DEFEATS/SINKS
+  - [PERSIST] Added a modpack setting that toggles allowing the effects of PERSIST in the editor (If you win a level while having persist objects, those persist objects will carry over to the next level you play in the levelpack)
+  - Added a "Restore Default Settings" button for each mod menu in the mega modpack settings.
+  - Fixed "Level is you" + "orb is bonus" not working
+  - Removed a bunch of unused sprites from Patashu's modpack
+    - This should also fix "text_reverse" sprite showing incorrectly
 - **1.1.0** (5/29/22)
   - Updated for Baba version 468C
   - [PLASMA] Updated for Plasma modpack version 1.5.7 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.7))
