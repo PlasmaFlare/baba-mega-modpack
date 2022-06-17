@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.1.1"
+local mega_modpack_version = "1.1.2"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
@@ -310,7 +310,7 @@ table.insert(mod_hook_functions["level_start"],
                 local value = read_setting(mod_data.cfg_section, data)
                 local togglevalue = gettoggle(value) == 1
 
-                settings_dict[setting_name] = value
+                settings_dict[setting_name] = togglevalue
             end
 
             mod_data.settings_apply_func(settings_dict)

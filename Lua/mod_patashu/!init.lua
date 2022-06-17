@@ -8,7 +8,7 @@ very_sticky = false
 print("Start of !init.lua")
 
 function apply_patashu_settings(settings_dict)
-	for setting, value in pairs(settings_dict) do
+	for setting_name, value in pairs(settings_dict) do
 		if setting_name == "very_drunk" then
 			very_drunk = value
 		elseif setting_name == "float_breaks_sticky" then

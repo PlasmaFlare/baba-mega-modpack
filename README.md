@@ -43,6 +43,8 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.1.2** (6/17/22)
+  - Fixed most modpack settings not properly applying
 - **1.1.1** (6/12/22)
   - Updated for Baba version 469
   - [PLASMA] Updated for Plasma modpack version 1.5.8 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.8))
