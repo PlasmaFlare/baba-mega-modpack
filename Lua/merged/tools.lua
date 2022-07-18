@@ -804,3 +804,117 @@ function findfears(unitid,feartargets,x_,y_)
 	
 	return result,resultdir,amount
 end
+
+function getlevelsurrounds(firstlevelid)
+	generaldata.strings[VISIT_INNERLEVELID] = tostring(firstlevelid)
+
+	local loopindex = 1
+	local addedids = {firstlevelid}
+	local dirids = {"r","u","l","d","dr","ur","ul","dl","o"}
+	local result = ""
+
+	while #addedids >= loopindex do
+		local levelid = addedids[loopindex]
+		
+		local level = mmf.newObject(levelid)
+		result = result .. "levelseparator" .. ","
+		.. tostring(levelid) .. ","
+		.. level.strings[U_LEVELFILE] .. ","
+		.. tostring(level.values[VISUALLEVEL]) .. ","
+		.. tostring(level.values[VISUALSTYLE]) .. ","
+		.. tostring(level.values[DIR] .. ",")
+
+		for i,v in ipairs(dirs_diagonals) do
+			result = result .. dirids[i] .. ","
+			local ox,oy = v[1],v[2]
+			local tileid = (level.values[XPOS] + ox) + (level.values[YPOS] + oy) * roomsizex
+
+			if (unitmap[tileid] ~= nil) then
+				if (#unitmap[tileid] > 0) then
+					for a,b in ipairs(unitmap[tileid]) do
+						if (b ~= levelid) then
+							local unit = mmf.newObject(b)
+							local name = getname(unit)
+							
+							if (string.len(unit.strings[U_LEVELFILE]) > 0) and (string.len(unit.strings[U_LEVELNAME]) > 0) and (generaldata.values[IGNORE] == 0) and (unit.values[COMPLETED] > 1) then
+								result = result .. b .. ","
+
+								local leveladded = false
+								for c,d in ipairs(addedids) do
+									if d == b then
+										leveladded = true
+									end
+								end
+								if leveladded == false then
+									table.insert(addedids,b)
+								end
+							end
+							result = result .. name .. ","
+						end
+					end
+				else
+					result = result .. "-" .. ","
+				end
+			else
+				result = result .. "-" .. ","
+			end
+		end
+		
+		loopindex = loopindex + 1
+	end
+	
+	generaldata2.strings[LEVELSURROUNDS] = result
+end
+
+function parsesurrounds()
+	local fullsurrounds = MF_parsestring(generaldata2.strings[LEVELSURROUNDS])
+	local surrounds = {}
+	local stage = 0
+
+	for i,v in ipairs(fullsurrounds) do
+		if v == "levelseparator" then
+			stage = 1
+		elseif stage == 1 and v == generaldata.strings[VISIT_INNERLEVELID] then
+			stage = 2
+		elseif stage == 1 then
+			stage = 0
+		elseif stage == 2 then
+			stage = 3
+		elseif stage == 3 then
+			stage = 4
+		elseif stage == 4 then
+			stage = 5
+		elseif stage == 5 then
+			if v == "levelseparator" then
+				break
+			else
+				table.insert(surrounds,v)
+			end
+		end
+	end
+
+	local result = {}
+	stage = 0
+	
+	local dirids = {"r","u","l","d","dr","ur","ul","dl","o"}
+	
+	for i,v in ipairs(surrounds) do
+		if (i == 1) then
+			result.dir = tonumber(v)
+		else
+			if (v == dirids[stage + 1]) then
+				stage = stage + 1
+			else
+				local dir = dirids[stage]
+				
+				if (result[dir] == nil) then
+					result[dir] = {}
+				end
+				
+				table.insert(result[dir], v)
+			end
+		end
+	end
+	
+	return result
+end

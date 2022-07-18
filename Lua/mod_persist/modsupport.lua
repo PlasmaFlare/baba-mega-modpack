@@ -225,11 +225,13 @@ table.insert(mod_hook_functions["level_start"],
 		prevpersists[currentlevel] = {}
 
 		local stable_persists_to_apply = {}
+		local created_new_persist_units = false
 		if persists ~= nil then
 			for i,v in pairs(persists) do
 				--do not bring persistent objects if their persistence is disabled in the new level
 				if hasfeature(v[1], "is","not persist") == nil and not (hasfeature("all", "is","not persist") and not (string.sub(v[1], 1, 5) == "text_")) and not ((string.sub(v[1], 1, 5) == "text_") and (hasfeature("text", "is","not persist"))) then
 					local newunitid, id = create(v[1],v[2],v[3],v[4],v[5],v[6],nil,true,v[9],v[10])
+					created_new_persist_units = true
 
 					if v[11] then
 						table.insert(stable_persists_to_apply, {newunitid, v[11]})
@@ -246,6 +248,11 @@ table.insert(mod_hook_functions["level_start"],
 					end
 				end
 			end
+		end
+
+		-- @Merge: small fix where persisted objects don't update their sprites
+		if created_new_persist_units then
+			animate()
 		end
 		
 		prevlevelpersist[currentlevel] = {}

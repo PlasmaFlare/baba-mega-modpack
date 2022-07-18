@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.1.2"
+local mega_modpack_version = "1.2.0"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
@@ -6,9 +6,10 @@ local mod_list = {
     {name = "Plasma's Modpack",     author = "Plasmaflare",             color={4,4}},
     {name = "Patashu's Modpack",    author = "Patashu",                 color={3,1}},
     {name = "Persist",              author = "Randomizer",              color={0,3}},
-    {name = "Past",                 author = "Emily",                   color={3,1}},
+    {name = "Past",                 author = "EmilyEmmi",               color={3,1}},
     {name = "Stringwords",          author = "Wrecking Games",          color={3,4}},
     {name = "Word Salad",           author = "Huebird",                 color={2,1}},
+    {name = "Visit",                author = "Btd456Creeper",           color={0,3}},
 }
 
 local mod_setting_data = {

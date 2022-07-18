@@ -56,11 +56,7 @@ end
 local old_findnoun = findnoun
 function findnoun(noun, ...)
     if is_name_text_this(noun) then
-        if this_mod_globals.doing_group_rules then
-            return false
-        else
-		    return true
-        end
+        return true
 	else
         return old_findnoun(noun, ...)
     end

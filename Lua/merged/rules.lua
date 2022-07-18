@@ -1539,8 +1539,9 @@ end
 
 function addoption(option,conds_,ids,visible,notrule,tags_)
 	--[[ 
-		@mods(this) - Override reason: handle "not this is X. Also treat "this<string>" as part of 
-			featureindex["this"]
+		@mods(this) - Override reason: hook for registering any pnoun rules in th_text_this.lua.
+			Also, prevent a few things that addoption usually does when adding a pnoun rule. These include processing
+			"not THIS is X" and displaying the rule in the pause menu.
 	 ]]
 	 --MF_alert(option[1] .. ", " .. option[2] .. ", " .. option[3])
 
@@ -1562,16 +1563,9 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 	
 	if (#option == 3) then
 		local rule = {option,conds,ids,tags}
-		--[[ 
-			Defer processing any sentences with "this" as target or effect.
-			The reason that we do this is if we insert "not this is blue" into featureindex before we call do_subrule_pnouns(), it will evaluate as "anything that isn't the non-text object called "this" is blue".
-			This would make everything blue, since everything on the level isn't this hypothetical-non-text-THIS-object. 
-		]]
-		if is_name_text_this(option[1]) or is_name_text_this(option[3]) or is_name_text_this(option[3], true) then
-			defer_addoption_with_this(rule)
-			return
-		elseif is_name_text_this(option[1], true) then
-			defer_addoption_with_this(rule)
+
+		local allow_add_to_featureindex, is_pnoun_target, is_pnoun_effect, is_pnoun_rule = scan_added_feature_for_pnoun_rule(rule, visual)
+		if not allow_add_to_featureindex then
 			return
 		end
 
@@ -1600,9 +1594,17 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 			table.insert(featureindex[target], rule)
 		end
 		
-		if visual then
+		if visual and not is_pnoun_rule then
 			local visualrule = copyrule(rule)
 			table.insert(visualfeatures, visualrule)
+		end
+
+		-- @mods(this) - prevent populating the featureindex with pnoun rules. Each pnoun isn't an object, but a reference to an object.
+		if is_pnoun_effect then
+			featureindex[effect] = {}
+		end
+		if is_pnoun_target then
+			featureindex[target] = {}
 		end
 		
 		local groupcond = false
@@ -1714,6 +1716,12 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 
 		local targetnot = string.sub(target, 1, 4)
 		local targetnot_ = string.sub(target, 5)
+		
+		-- @mods(this) - odd but mininal way to prevent "not this is X" from applying X to everything but a theoretical "this" object
+		if is_pnoun_rule then
+			targetnot = ""
+			targetnot_ = ""
+		end
 		
 		if (targetnot == "not ") and (objectlist[targetnot_] ~= nil) and (string.sub(targetnot_, 1, 5) ~= "group") and (string.sub(effect, 1, 5) ~= "group") and (string.sub(effect, 1, 9) ~= "not group") or (((string.sub(effect, 1, 5) == "group") or (string.sub(effect, 1, 9) == "not group")) and (targetnot_ == "all")) then
 			if (targetnot_ ~= "all") then
@@ -1934,13 +1942,9 @@ function code(alreadyrun_)
 				if BRANCHING_TEXT_LOGGING then
 					print("<<<<<<<<<<<<<end>")
 				end
-				subrules()
-				
-				-- @mods(THIS) - this global is to indicate to findnoun() to return false on any pointer noun. (See defer_addoption_with_this for why we do this)
-				this_mod_globals.doing_group_rules = true
-				grouprules()
-				this_mod_globals.doing_group_rules = false
 				do_subrule_pnouns()
+				subrules()
+				grouprules()
 				playrulesound = postrules(alreadyrun)
 				updatecode = 0
 				
@@ -2298,6 +2302,7 @@ function postrules(alreadyrun_)
 				-- @mods(stable) - to handle cases of "X is X" and "X is not Y" directly modifying the featureindex with conditions,
 				-- the general rule is this: Normal features can only modify other normal features. Stable features can only modify other stable features.
 				-- There cannot be a crisscross between normal and stable features. - 3/6/22
+				-- Update: we allow one exception. If "X is not stable" is a stablerule, it should cancel out the normal rule "X is stable"
 				local not_rule_has_stable_tag = has_stable_tag(tags)
 				
 				for e,g in ipairs(targetlists) do
@@ -2305,7 +2310,7 @@ function postrules(alreadyrun_)
 						local same = comparerules(newbaserule,b[1])
 						local target_rule_has_stable_tag = has_stable_tag(b[4])
 						
-						if (same or ((g == "write") and (target == b[1][1]) and (b[1][2] == "write"))) and (not_rule_has_stable_tag == target_rule_has_stable_tag) then
+						if (same or ((g == "write") and (target == b[1][1]) and (b[1][2] == "write"))) and (not_rule_has_stable_tag == target_rule_has_stable_tag or newbaserule == "stable") then
 							--MF_alert(rule[1] .. ", " .. rule[2] .. ", " .. neweffect .. ": " .. b[1][1] .. ", " .. b[1][2] .. ", " .. b[1][3])
 							local theseconds = b[2]
 							
@@ -2574,6 +2579,15 @@ function subrules()
 			local rule = rules[1]
 			local conds = rules[2]
 			local tags = rules[4]
+
+			--[[ 
+				@mods(THIS): basegame MIMIC doesn't copy the text ids of "X mimic Y" to its subrules.
+				It's needed in THIS for the following:
+				- If "THIS mimic X is blue", then the subrule generated is "THIS is blue".
+				- In order to process "THIS is blue", we need the unitid of the THIS text to figure out where to start raycasting.
+				- But since the unitid of THIS wasn't copied over to the subrule, we cannot process "THIS is blue"
+			]]
+			local mimic_ids = rules[3]
 			
 			if (rule[2] == "mimic" ) then
 				local object = rule[1]
@@ -2627,6 +2641,7 @@ function subrules()
 						
 						if (trule[1] == target) and (trule[2] ~= "mimic") and valid then
 							local newconds = {}
+							local newids = {}
 							local newtags = {}
 							local has_stable_cond = false
 							
@@ -2643,6 +2658,14 @@ function subrules()
 							
 							for c,d in ipairs(extraconds) do
 								table.insert(newconds, d)
+							end
+
+							for c,d in ipairs(mimic_ids) do
+								table.insert(newids, d)
+							end
+
+							for c,d in ipairs(ids) do
+								table.insert(newids, d)
 							end
 							
 							for c,d in ipairs(ttags) do
@@ -2667,9 +2690,9 @@ function subrules()
 							limiter = limiter + 1
 
 							if has_stable_cond then
-								addoption(newrule,newconds,ids,false,nil,newtags)
+								addoption(newrule,newconds,newids,false,nil,newtags)
 							else
-								addoption(newrule,newconds,ids,true,nil,newtags)
+								addoption(newrule,newconds,newids,true,nil,newtags)
 							end
 
 							if STABLE_LOGGING then

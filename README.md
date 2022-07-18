@@ -20,7 +20,8 @@ The main version currently includes these mods:
 - Persist (From the levelpack "Persistence") - By @Randomizer#0769
 - Past - By @EmilyEmmi#9099 (Or simply Emily)
 - Stringwords (STARTS/CONTAINS/ENDS) - By @Wrecking Games#8371
-- Word Salad (ALIVE/VESSEL/VESSEL2/KARMA/SINFUL/HOP) - By Huebird#3471
+- Word Salad (ALIVE/VESSEL/VESSEL2/KARMA/SINFUL/HOP) - By @Huebird#3471
+- Visit - By @Btd456Creeper#3711
 
 # How to install
 1. This modpack only works when you install into a levelpack. Pick an existing levelpack or create a new levelpack in the baba editor. (From baba title: `Level Editor -> Edit Levelpacks -> Create a new levelpack`)
@@ -43,6 +44,11 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.2.0** (7/18/22)
+  - Added Visit mod!
+  - [VISIT x PERSIST] Support for persisting objects via Visit
+  - [PERSIST] Fixed visual bug where persisted objects do not update sprites on start
+  - [PLASMA] Update to 1.5.10
 - **1.1.2** (6/17/22)
   - Fixed most modpack settings not properly applying
 - **1.1.1** (6/12/22)

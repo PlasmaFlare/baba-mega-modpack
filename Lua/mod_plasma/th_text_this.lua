@@ -3,7 +3,6 @@ local function reset_this_mod_globals()
     this_mod_globals = {
         active_this_property_text = {}, -- keep track of texts 
         undoed_after_called = false, -- flag for providing a specific hook of when we call code() after an undo
-        doing_group_rules = false,
     }
 end   
 reset_this_mod_globals()
@@ -30,6 +29,9 @@ local TIMER_CYCLE_PERIOD = TIMER_PERIOD/2
 local checking_updatecode_status_flag = false
 local checking_updatecode_curr_pnoun_ref = {}
 
+local run_extract_bpr_subrules = false
+local extracting_bpr_subrules = false
+
 local function set_blocked_tile(tileid)
     if tileid then
         blocked_tiles[tileid] = true
@@ -53,14 +55,14 @@ local Pnoun_Op_To_Explicit_Tile_Func = {
 }
 
 --[[ 
-    local deferred_pnoun_subrules = {
+    local registered_pnoun_rules = {
         <Pnoun_Group> = {
             pnoun_features = [<feature>, <feature>],
             pnoun_units = (<pnoun unitid>, <pnoun unitid>),
         }
     }
 ]]
-local deferred_pnoun_subrules = {}
+local registered_pnoun_rules = {}
 
 --[[ 
     local pnoun_subrule_data = {
@@ -73,6 +75,11 @@ local deferred_pnoun_subrules = {}
             <pnoun unitid> = <int>
         },
         pnouns_in_conds = (<pnoun unitid>, <pnoun unitid>, ...),
+        pnoun_feature_extradata = {
+            <feature> = {
+                visible = <bool>
+            }
+        }
     }    
 ]]
 local pnoun_subrule_data = {}
@@ -142,9 +149,11 @@ local function reset_this_mod_locals()
     explicit_relayed_tiles = {}
     raycast_data = {}
     relay_indicators = {}
-    deferred_pnoun_subrules = {}
+    registered_pnoun_rules = {}
     pnoun_subrule_data = {}
     indicator_layer_timer = 0
+    run_extract_bpr_subrules = false
+    extracting_bpr_subrules = false
 
     raycast_trace_tracker:clear()
     raycast_analyzer:reset()
@@ -196,14 +205,16 @@ table.insert(mod_hook_functions["rule_update"],
             active_pnouns = {},
             process_order = {},
             pnouns_in_conds = {},
+            pnoun_feature_extradata = {},
         }
-        deferred_pnoun_subrules = {}
+        registered_pnoun_rules = {}
         for pnoun_group, value in pairs(Pnoun.Groups) do
-            deferred_pnoun_subrules[value] = {
+            registered_pnoun_rules[value] = {
                 pnoun_features = {},
                 pnoun_units = {},
             }
         end
+        run_extract_bpr_subrules = false
 
         if THIS_LOGGING then
             print(">>>>>>>>>>>>>>> rule_update start")
@@ -365,108 +376,100 @@ function on_delele_this_text(this_unitid)
     end
 end
 
--- Note: this is directly copied from addoption().
-local function rule_has_group(rule)
-    local baserule = rule[1]
-    local conds = rule[2]
-    local target = baserule[1]
-    local property = baserule[3]
-
-    local groupcond = false
-    if (string.sub(target, 1, 5) == "group") or (string.sub(property, 1, 5) == "group") or (string.sub(target, 1, 9) == "not group") or (string.sub(property, 1, 9) == "not group") then
-        groupcond = true
-    end
-    if groupcond == false then
-        if (#conds > 0) then
-            for i,cond in ipairs(conds) do
-                if (cond[2] ~= nil) then
-					if (#cond[2] > 0) then
-						for a,b in ipairs(cond[2]) do
-                            if (string.sub(b, 1, 5) == "group") or (string.sub(b, 1, 9) == "not group") then
-								groupcond = true
-                                break
-							end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return groupcond
-end
-
-function defer_addoption_with_this(rule)
+--[[ 
+    Every time addoption() gets called with a rule to submit, call this function to do a few things:
+    - if the rule submitted has a pnoun as the target or effect, register the rule to be processed in do_subrule_pnouns()
+    - if the rule submitted signifies potential enough reason to run extract_bpr_subrules(), set run_extract_bpr_subrules = true (see extract_bpr_subrules() for why)
+    - if extracting_bpr_subrules = true, prevent any non-bpr rules from being submitted to the featureindex
+]]
+function scan_added_feature_for_pnoun_rule(rule, visible)
     local baserule = rule[1]
     local target = baserule[1]
+    local verb = baserule[2]
     local property = baserule[3]
-    
     local target_is_pnoun = is_name_text_this(target) or is_name_text_this(target, true)
     local property_is_pnoun = is_name_text_this(property) or is_name_text_this(property, true)
+    local is_pnoun_rule = target_is_pnoun or property_is_pnoun
 
-    local pnoun_group = nil
-    if target_is_pnoun and not property_is_pnoun then
-        if property == "block" then
-            pnoun_group = Pnoun.Groups.THIS_IS_BLOCK
-        elseif property == "relay" then
-            pnoun_group = Pnoun.Groups.THIS_IS_RELAY
-        elseif property == "pass" then
-            pnoun_group = Pnoun.Groups.THIS_IS_PASS
+    local allow_add_to_featureindex = true
+
+    local is_bpr_rule = property == "block" or property == "pass" or property == "relay"
+    if extracting_bpr_subrules then
+        if not is_bpr_rule then
+            allow_add_to_featureindex = false
+        elseif target_is_pnoun then
+            allow_add_to_featureindex = false
+        end
+    else
+        if verb == "mimic" then
+            --[[ 
+                Note: for "mimic", we cannot refine the above condition further. If for instance "baba mimic X" creates
+                baba is pass" as a subrule, it is because the featureindex would've contained "X is pass" *after docode() is finished*.
+                scan_added_feature_for_pnoun_rule() is called in addoption(), which in turn gets called *while* docode() is running.
+                Therefore, accessing featureindex for lookup purposes in this function is unreliable, since the game is in the middle of
+                repopulating featureindex.
+             ]]
+            run_extract_bpr_subrules = true
+        elseif is_bpr_rule and (target == "all" or string.sub(target, 1, 5) == "group") then
+            run_extract_bpr_subrules = true
         end
     end
-    
-    if pnoun_group == nil then
-        pnoun_group = Pnoun.Groups.VARIABLE
-    end
-    
-    -- Even though we've defered the THIS rule, if the rule also has "group", we still need to add it to groupfeatures to allow grouprules()
-    -- to process it before we call do_subrule_pnoun()
-    if pnoun_group == Pnoun.Groups.VARIABLE then
-        if not target_is_pnoun or not property_is_pnoun then
-            if rule_has_group(rule) then
-                table.insert(features, rule)
-                local visualrule = copyrule(rule)
-                table.insert(visualfeatures, visualrule)
-                table.insert(groupfeatures, rule)
-                return
+
+    if is_pnoun_rule then
+        local pnoun_group = nil
+        if target_is_pnoun and not property_is_pnoun then
+            if property == "block" then
+                pnoun_group = Pnoun.Groups.THIS_IS_BLOCK
+            elseif property == "relay" then
+                pnoun_group = Pnoun.Groups.THIS_IS_RELAY
+            elseif property == "pass" then
+                pnoun_group = Pnoun.Groups.THIS_IS_PASS
+            end
+        end
+        
+        if pnoun_group == nil then
+            pnoun_group = Pnoun.Groups.VARIABLE
+        end
+        
+        -- A pnoun feature can only be in one pnoun group. There is no need to check for priority since
+        -- each pnoun group is meant to be mutually exclusive in terms of features.
+        table.insert(registered_pnoun_rules[pnoun_group].pnoun_features, rule)
+        pnoun_subrule_data.pnoun_feature_extradata[rule] = {
+            visible = visible
+        }
+
+        local pnouns_to_add = {}
+
+        if target_is_pnoun then
+            local target_this_unitid = get_target_unitid_from_rule(rule)
+            table.insert(pnouns_to_add, target_this_unitid)
+        end
+        if property_is_pnoun then
+            local property_this_unitid = get_property_unitid_from_rule(rule)
+            table.insert(pnouns_to_add, property_this_unitid)
+        end
+
+        -- A pnoun unit can only belong to one pnoun group. If a pnoun can be categorized into two
+        -- groups, only go for the group with the higher priority.
+        for _, pnoun in ipairs(pnouns_to_add) do
+            local prev_pnoun_group = pnoun_subrule_data.pnoun_to_groups[pnoun]
+
+            if prev_pnoun_group ~= nil and pnoun_group < prev_pnoun_group then
+                -- Replace with the pnoun group with the higher priority
+                registered_pnoun_rules[prev_pnoun_group].pnoun_units[pnoun] = nil
+                registered_pnoun_rules[pnoun_group].pnoun_units[pnoun] = true
+                pnoun_subrule_data.pnoun_to_groups[pnoun] = pnoun_group
+                pnoun_subrule_data.active_pnouns[pnoun] = true
+            elseif prev_pnoun_group == nil then
+                -- Assign the pnoun group to the pnoun unit
+                registered_pnoun_rules[pnoun_group].pnoun_units[pnoun] = true
+                pnoun_subrule_data.pnoun_to_groups[pnoun] = pnoun_group
+                pnoun_subrule_data.active_pnouns[pnoun] = true
             end
         end
     end
 
-    
-    -- A pnoun feature can only be in one pnoun group. There is no need to check for priority since
-    -- each pnoun group is meant to be mutually exclusive in terms of features.
-    table.insert(deferred_pnoun_subrules[pnoun_group].pnoun_features, rule)
-
-    local pnouns_to_add = {}
-
-    if target_is_pnoun then
-        local target_this_unitid = get_target_unitid_from_rule(rule)
-        table.insert(pnouns_to_add, target_this_unitid)
-    end
-    if property_is_pnoun then
-        local property_this_unitid = get_property_unitid_from_rule(rule)
-        table.insert(pnouns_to_add, property_this_unitid)
-    end
-
-    -- A pnoun unit can only belong to one pnoun group. If a pnoun can be categorized into two
-    -- groups, only go for the group with the higher priority.
-    for _, pnoun in ipairs(pnouns_to_add) do
-        local prev_pnoun_group = pnoun_subrule_data.pnoun_to_groups[pnoun]
-
-        if prev_pnoun_group ~= nil and pnoun_group < prev_pnoun_group then
-            -- Replace with the pnoun group with the higher priority
-            deferred_pnoun_subrules[prev_pnoun_group].pnoun_units[pnoun] = nil
-            deferred_pnoun_subrules[pnoun_group].pnoun_units[pnoun] = true
-            pnoun_subrule_data.pnoun_to_groups[pnoun] = pnoun_group
-            pnoun_subrule_data.active_pnouns[pnoun] = true
-        elseif prev_pnoun_group == nil then
-            -- Assign the pnoun group to the pnoun unit
-            deferred_pnoun_subrules[pnoun_group].pnoun_units[pnoun] = true
-            pnoun_subrule_data.pnoun_to_groups[pnoun] = pnoun_group
-            pnoun_subrule_data.active_pnouns[pnoun] = true
-        end
-    end
+    return allow_add_to_featureindex, target_is_pnoun, property_is_pnoun, is_pnoun_rule
 end
 
 function register_pnoun_in_cond(pnoun_unitid, condtype)
@@ -657,6 +660,10 @@ local function make_relay_indicator_key(tileid, dir)
     return tileid + dir * roomsizex * roomsizey
 end
 
+--[[ 
+    Given a pnoun text, simulate a raycast with it without actually effecting anything.
+    Return data about the results of the raycast/
+]]
 local function simulate_raycast_with_pnoun(pnoun_unitid, raycast_settings)
     --[[ 
         return value: {
@@ -999,6 +1006,7 @@ condlist["this"] = function(params,checkedconds,checkedconds_,cdata)
     return false, checkedconds
 end
 
+-- Given an object/text pointed in "Baba <verb> THIS(X)", return whether or not X is valid
 local function is_unit_valid_this_property(name, unittype, texttype, verb)
     if is_name_text_this(name) then
         return false
@@ -1047,6 +1055,7 @@ local function is_unit_valid_this_property(name, unittype, texttype, verb)
     return false
 end
 
+-- Given an object/text pointed in "Baba <infix_conf> THIS(X) is Y", return whether or not X is valid
 function is_unit_valid_this_infix_param(name, unittype, texttype, infix_cond)
     if is_name_text_this(name) then
         return false
@@ -1067,6 +1076,7 @@ function is_unit_valid_this_infix_param(name, unittype, texttype, infix_cond)
     return false
 end
 
+-- Given a tileid that represents the location of a lettertext pointed by "baba is THIS(X)", get all valid words spelled out by letters
 local function get_valid_letterwords(tileid, reason, reason_type)
     local found_letterwords = {}
     if (letterunits_map[tileid] ~= nil) then
@@ -1188,13 +1198,13 @@ end
 
 local function populate_inactive_pnouns()
     local active_pnouns = {}
-    for pnoun_group, data in pairs(deferred_pnoun_subrules) do
+    for pnoun_group, data in pairs(registered_pnoun_rules) do
         for pnoun_unitid in pairs(data.pnoun_units) do
             active_pnouns[pnoun_unitid] = true
         end
     end
 
-    local inactive_pnoun_group = deferred_pnoun_subrules[Pnoun.Groups.VARIABLE]
+    local inactive_pnoun_group = registered_pnoun_rules[Pnoun.Groups.VARIABLE]
     for pnoun_unitid, _ in pairs(raycast_data) do
         if not active_pnouns[pnoun_unitid] then
             inactive_pnoun_group.pnoun_units[pnoun_unitid] = true
@@ -1202,8 +1212,50 @@ local function populate_inactive_pnouns()
     end
 end
 
+--[[ 
+    Performes a "controlled call" on subrules() and grouprules() to extract any block/pass/relay rules created
+    from group/mimic/all.
 
-local function process_pnoun_features(pnoun_features, filter_property_func, curr_pnoun_op, pnoun_group)
+    For context, group/mimic/all are special words that can create what the game calls a "subrule". This is a normal baba is you rule
+    but it is created *because* another rule exists. For instance, having "all is you" will generate "baba is you", "keke is you", "tree is you",
+    and so on as subrules. Another example: "bird is group" + "group is word" will generate "bird is word" as a subrule.
+
+    These subrules are generated when both subrules() and grouprules() are called. In vanilla, they are called right after docode() in rules.lua.
+
+    Pnouns are also implemented in this way. They generate subrules after figuring out what each pnoun text points to. This all happens in
+    do_subrule_pnouns(), which is called *before* subrules() and grouprules(), but *after* docode(). This order ensures that all pnoun texts
+    get evaluated before passing it off to subrules() and grouprules() to do their own thing in evaluating group/mimic/all.
+
+    But there's one flaw in this. do_subrule_pnouns() does all of the raycast logic for every pnoun text.
+    The raycast logic depends on block/pass/relay rules (which I dub "bpr"). And bpr rules have to get added to the featureindex in order to be
+    recognized.
+
+    Let's look at trying to evaluate "all is block" + "this(baba) is you", keeping in mind of the call order of docode(), do_subrule_pnouns(), subrules() and grouprules() in rules.lua:
+        - First, docode() extracts "all is block" and "this is you" (notice "this" instead of "this(baba)" because we haven't evaluated "this" yet)
+        - Next, do_subrule_pnouns() determines that "this" is pointing to baba, and generates "baba is you"
+        - Lastly, subrules()/grouprules() evaluates "all is block" to generate "baba is block", "keke is block", etc
+    The problem is the "baba is block" subrule did not have a chance to be used in do_subrule_pnouns(). do_subrule_pnouns() is called *before* subrules().
+
+    The solution I ultimately found (after several ideas leading to rabbit holes) is to do a *seperate* call to subrules()/grouprules() *before*
+    evaluating all pnoun texts. However, this call ensures that subrules with *only* block/pass/relay are added to the featureindex, throwing out
+    other subrules to avoid duplicates.
+
+    There are still a few cases with pnouns + subrules that are broken:
+    - X is this(group) + group is bpr
+    - X mimic this(tree) + tree is bpr
+    - X mimic this(group) + group is bpr
+    However, these cases are so specific that I won't be fixing them (for now). I suspect though the fix would involve alternating calling
+    between do_subrule_pnouns() and subrules()/grouprules() in some insanely restricted way. Or even worse, allow an infinite loop to happen.
+]]
+local function extract_bpr_subrules()
+    extracting_bpr_subrules = true
+    subrules()
+    grouprules()
+    extracting_bpr_subrules = false
+end
+
+-- The main function for generating pnoun subrules. This function turns "THIS(baba) is you" into "baba is you", for example
+local function process_pnoun_features(pnoun_features, feature_extradata, filter_property_func, curr_pnoun_op, pnoun_group)
     local final_options = {}
     local processed_pnouns = {}
     local all_redirected_pnouns = {}
@@ -1211,6 +1263,7 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
     for i=#pnoun_features,1,-1 do
         rules = pnoun_features[i]
         local rule, conds, ids, tags = rules[1], rules[2], rules[3], rules[4]
+        local visible = feature_extradata[rules].visible
         local target, verb, property = rule[1], rule[2], rule[3]
         local redirected_pnouns_in_feature = {}
         local found_pnouns = {}
@@ -1245,10 +1298,8 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
                     end
 
                     if filter_property_func(rulename) and unit_details.texttype ~= 5 then
-                        if rulename ~= "empty" then
-                            if unit_details.unittype == "text" then
-                                this_mod_globals.active_this_property_text[unit_details.unitid] = true
-                            end
+                        if unit_details.unittype == "text" then
+                            this_mod_globals.active_this_property_text[unit_details.unitid] = true
                         end
 
                         if prop_isnot then
@@ -1260,7 +1311,7 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
                         for a,b in ipairs(conds) do
                             table.insert(newconds, b)
                         end
-                        table.insert(property_options, {rule = newrule, conds = newconds, newrule = nil, showrule = nil})
+                        table.insert(property_options, {rule = newrule, conds = newconds, newrule = nil, showrule = visible})
                     end
                 end
 
@@ -1286,7 +1337,7 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
                         for a,b in ipairs(conds) do
                             table.insert(newconds, b)
                         end
-                        table.insert(property_options, {rule = newrule, conds = newconds, newrule = nil, showrule = nil})
+                        table.insert(property_options, {rule = newrule, conds = newconds, newrule = nil, showrule = visible})
                     end
                 end
             end
@@ -1412,6 +1463,13 @@ local function process_pnoun_features(pnoun_features, filter_property_func, curr
     return {processed_pnouns, pnoun_features, all_redirected_pnouns}
 end
 
+--[[ 
+    Calling this function locks in the raycast data generated from simulate_raycast_with_pnoun() for a single pnoun.
+    It also applies the needed global state changes from doing a raycast. Once a pnoun's raycast data is committed,
+    the pnoun cannot update it's raycast data until the featureindex gets refreshed again from calling code() with updatecode = 1.
+
+    This function implies that raycast data for a pnoun *can* change while running do_subrule_pnouns(). See that function for how this is done.
+]]
 local function commit_raycast_data(pnoun_unitid, raycast_simulation_data, pnoun_group, op)
     local curr_raycast_data = raycast_data[pnoun_unitid]
     local raycast_objects_by_tileid = raycast_simulation_data.raycast_objects_by_tileid
@@ -1511,6 +1569,12 @@ end
 
 -- Starting point where all pnoun processing is. This is like what grouprules() is to all group processing.
 function do_subrule_pnouns()
+    if run_extract_bpr_subrules then
+        if THIS_LOGGING then
+            print("running extract_bpr_subrules")
+        end
+        extract_bpr_subrules()
+    end
     populate_inactive_pnouns()
 
     local raycast_settings = {
@@ -1521,7 +1585,16 @@ function do_subrule_pnouns()
     local all_found_relay_indicators = {}
     local new_relay_indicators = {}
     local process_round = 0
-    for pnoun_group, data in ipairs(deferred_pnoun_subrules) do
+
+    --[[ 
+        When adding pnoun rules to be processed in scan_added_feature_for_pnoun_rule(), we group them into "pnoun groups". These groups
+        represent different priorities in processing order of the pnoun rules, mainly based around block/pass/relay.
+        For instance, "THIS is block" gets processed before "THIS is relay".
+
+        We process each pnoun group in a set order, submitting any subrules into the featureindex while doing so. Then the next pnoun group
+        will use the previously submitted rules when it gets processed. (See comments on each action of each step of the process)
+    ]]
+    for pnoun_group, data in ipairs(registered_pnoun_rules) do
         if THIS_LOGGING then
             print("------ Processing Pnoun Group "..pnoun_group.." ------")
         end
@@ -1594,7 +1667,7 @@ function do_subrule_pnouns()
                 local prev_pnoun_feature_count = #data.pnoun_features
                 local processed_pnoun_units, remaining_pnoun_features, redirected_pnouns = nil, nil, nil
                 if pnoun_group ~= Pnoun.Groups.OTHER_INACTIVE then
-                    local process_result = process_pnoun_features(data.pnoun_features, Pnoun.Ops[op].filter_func, op, pnoun_group)
+                    local process_result = process_pnoun_features(data.pnoun_features, pnoun_subrule_data.pnoun_feature_extradata, Pnoun.Ops[op].filter_func, op, pnoun_group)
                     processed_pnoun_units = process_result[1]
                     remaining_pnoun_features = process_result[2]
                     redirected_pnouns = process_result[3]
@@ -1681,19 +1754,19 @@ function do_subrule_pnouns()
         local redirected_pnoun_group = Pnoun.Pnoun_Group_Lookup[pnoun_group].redirect_pnoun_group
         if redirected_pnoun_group ~= nil then
             for _, pnoun_feature in ipairs(data.pnoun_features) do
-                table.insert(deferred_pnoun_subrules[redirected_pnoun_group].pnoun_features, pnoun_feature)
+                table.insert(registered_pnoun_rules[redirected_pnoun_group].pnoun_features, pnoun_feature)
             end
             for pnoun_unit in pairs(data.pnoun_units) do
-                deferred_pnoun_subrules[redirected_pnoun_group].pnoun_units[pnoun_unit] = true
+                registered_pnoun_rules[redirected_pnoun_group].pnoun_units[pnoun_unit] = true
             end
         else
             if THIS_LOGGING then
                 -- Purely for error checking purposes
-                if #deferred_pnoun_subrules[pnoun_group].pnoun_features ~= 0 then
+                if #registered_pnoun_rules[pnoun_group].pnoun_features ~= 0 then
                     local err_str = "Reached end of processsing Pnoun Group "..tostring(pnoun_group).." but there are still features left that we are throwing out!\nList of features: "
 
                     local feature_list = {}
-                    for _, feature in ipairs(deferred_pnoun_subrules[pnoun_group].pnoun_features) do
+                    for _, feature in ipairs(registered_pnoun_rules[pnoun_group].pnoun_features) do
                         feature_list[#feature_list + 1] = utils.serialize_feature(feature)
                     end
 
@@ -1702,7 +1775,7 @@ function do_subrule_pnouns()
 
                 local discarded_pnoun_units = {}
                 local err_str = "Reached end of processsing Pnoun Group "..tostring(pnoun_group).." but there are still pnoun units left that we are throwing out!\nList of pnoun units: "
-                for pnoun_unit in pairs(deferred_pnoun_subrules[pnoun_group].pnoun_units) do
+                for pnoun_unit in pairs(registered_pnoun_rules[pnoun_group].pnoun_units) do
                     found_pnoun = true
                     for pnoun_unit in pairs(data.pnoun_units) do
                         discarded_pnoun_units[#discarded_pnoun_units + 1] = utils.unitstring(pnoun_unit)

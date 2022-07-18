@@ -11,6 +11,7 @@ local load_order = {
 	"features.lua",
 	"map.lua",
 	"mapcursor.lua",
+	"menu.lua",
 	"movement.lua",
 	"rules.lua",
 	"syntax.lua",

@@ -61,7 +61,10 @@ menufuncs.level.enter = function(...)
     old_level_func(...)
     display_modpack_setting_button()
 end
--- display_modpack_setting_button()
+
+if not PF_MEGA_MODPACK_INITIALIZED then
+    display_modpack_setting_button()
+end
 
 local structure = {}
 table.insert(structure, {{"pfreturn"}})

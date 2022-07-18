@@ -1,3 +1,5 @@
+PF_MEGA_MODPACK_INITIALIZED = true
+
 -- These are initialized in the respective modpacks
 -- table.insert(objlistdata.alltags, "plasma's mods")
 -- table.insert(objlistdata.alltags, "patashu")
