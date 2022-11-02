@@ -179,7 +179,7 @@ function findpersists(reason)
 		persistyoffset = 0
 	else
 		persistxoffset = (Xoffset-Xoffsetorig)/tilesize
-		persistyoffset = Yoffset/tilesize
+		persistyoffset = (Yoffset-Yoffsetorig)/tilesize
 	end
 		
 	ispersist = getunitswitheffect("persist",delthese)

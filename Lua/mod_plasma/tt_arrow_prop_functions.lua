@@ -427,14 +427,12 @@ function do_directional_shift_level_parsing(moving_units, been_seen, mapdir)
 	if levelshift ~= nil then
 		for i,feature in ipairs(levelshift) do
 			local leveldir = mapdir
-			local valid = false
 						
 			if testcond(feature[2],1) then
 				for a,unit in ipairs(units) do
 					local x,y = unit.values[XPOS],unit.values[YPOS]
 					
 					if floating_level(unit.fixed) then
-						
 						if (isstill_or_locked(unit.fixed,x,y,leveldir) == false) and (issleep(unit.fixed,x,y) == false) then
 							table.insert(shifts_to_apply, {unit.fixed, leveldir})
 						end
@@ -448,14 +446,15 @@ function do_directional_shift_level_parsing(moving_units, been_seen, mapdir)
 		local dirfeature = dirfeaturemap[dir+1]
 		local dirshifts = findfeature("level", "is", "shift"..dirfeature)
 		if dirshifts ~= nil then
-			for i,v in ipairs(dirshifts) do
-				for a,unit in ipairs(units) do
-					local x,y = unit.values[XPOS],unit.values[YPOS]
-					
-					if floating_level(unit.fixed) then
+			for i,feature in ipairs(dirshifts) do
+				if testcond(feature[2],1) then
+					for a,unit in ipairs(units) do
+						local x,y = unit.values[XPOS],unit.values[YPOS]
 						
-						if (isstill_or_locked(unit.fixed,x,y,dir) == false) and (issleep(unit.fixed,x,y) == false) then
-							table.insert(shifts_to_apply, {unit.fixed, dir})
+						if floating_level(unit.fixed) then
+							if (isstill_or_locked(unit.fixed,x,y,dir) == false) and (issleep(unit.fixed,x,y) == false) then
+								table.insert(shifts_to_apply, {unit.fixed, dir})
+							end
 						end
 					end
 				end

@@ -56,7 +56,9 @@ function changemenu(menuitem,extra)
 	
 	editor.values[SCROLLAMOUNT] = 0
 
+	--these are the only four lines i added to this function
 	if menuitem == "main" then
-		generaldata2.strings[LEVELSURROUNDS] = ""
+		visit_innerlevelid = ""
+		visit_fullsurrounds = ""
 	end
 end

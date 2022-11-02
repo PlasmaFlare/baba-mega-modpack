@@ -2,6 +2,8 @@ local modpack_name = string.format("Plasmaflare's Mods V%s", plasma_modpack_vers
 local modpack_name_with_color = string.format("$1,4Plasma$3,4flare$0,3's Mods V%s", plasma_modpack_version)
 local PlasmaSettings = {}
 
+MF_loadsound("gd")
+
 local function write_modpack_version()
     local x = screenw - (baba_font_consts.total_letter_w * (#modpack_name - 2))
     local y = f_tilesize * 1.5
@@ -62,9 +64,7 @@ menufuncs.level.enter = function(...)
     display_modpack_setting_button()
 end
 
-if not PF_MEGA_MODPACK_INITIALIZED then
-    display_modpack_setting_button()
-end
+-- display_modpack_setting_button()
 
 local structure = {}
 table.insert(structure, {{"pfreturn"}})
@@ -166,6 +166,7 @@ buttonclick_list["pflol"] = function()
             constant[i] = string.char(num)
         end
         writetext(string.format("$4,1%s$0,3", table.concat(constant)), -1, 416, 240, "pfsettings")
+        MF_playsound("gd")
     end
 end
 

@@ -172,6 +172,8 @@ function doconvert(data,extrarule_)
 	local unit = {}
 	local x,y,dir,name,id,completed,float,ogname,karma = 0,0,0,"",0,0,0,"" -- EDIT: added local var "karma"
 	local delthis = false
+	local delthis_createall = false
+	local delthis_createall_ = false
 	
 	if (unitid ~= 2) then
 		unit = mmf.newObject(unitid)
@@ -222,8 +224,6 @@ function doconvert(data,extrarule_)
 			end
 		
 			if (mat2 ~= "empty") and (mat2 ~= "error") and (mat2 ~= "revert") and (mat2 ~= "createall") then
-			--MF_alert(tostring(id) .. " unit, " .. tostring(data[1]) .. ", name: " .. name .. ", result: " .. tostring(ingameid))
-			
 				if (mats2data[1] ~= "revert") then
 					unitname = unitreference[mat2]
 				end
@@ -369,8 +369,14 @@ function doconvert(data,extrarule_)
 				
 				emptydata[tileid]["conv"] = true
 			elseif (mat2 == "createall") then
-				delthis = createall_single(unitid)
+				delthis_createall = createall_single(unitid)
+				delthis = delthis_createall
+				delthis_createall_ = true
 			end
+		end
+		
+		if delthis_createall_ and (delthis_createall == false) and delthis then
+			delthis = false
 		end
 		
 		if delthis and (unit.flags[DEAD] == false) then
@@ -458,6 +464,7 @@ function convert(stuff,mats,dolevels_)
 	local delthese = {}
 	local mat1 = stuff
 	local dolevels = dolevels_ or false
+	local donewid = false
 	
 	if (dolevels == false) then
 		if (mat1 ~= "empty") then
@@ -481,6 +488,13 @@ function convert(stuff,mats,dolevels_)
 			end
 			
 			if (#targets > 0) then
+				for i,mat in pairs(mats) do
+					if (mat[1] == "createall") then
+						donewid = true
+						break
+					end
+				end
+				
 				for i,unitid in pairs(targets) do
 					local unit = mmf.newObject(unitid)
 					local x,y,dir,id = unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID]
@@ -518,9 +532,9 @@ function convert(stuff,mats,dolevels_)
 								
 								if testcond(conds,unit.fixed) and objectfound then
 									local ingameid = 0
-									if (a == 1) then
+									if (a == 1) and (donewid == false) then
 										ingameid = id
-									elseif (a > 1) then
+									elseif (a > 1) or donewid then
 										ingameid = newid()
 									end
 									

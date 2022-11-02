@@ -203,6 +203,12 @@ function undo()
 						
 						if (unit ~= nil) and (not unit_ignores_undos(unitid)) then
 							unit = {}
+							-- @mods(past x plasma) - need this to make IDs be deterministic when doing past + THIS
+							local ispast = line[9]
+							if not ispast then
+								generaldata.values[CURRID] = generaldata.values[CURRID] - 1
+							end
+							
 							delunit(unitid)
 							MF_remove(unitid)
 							dynamicat(x,y)

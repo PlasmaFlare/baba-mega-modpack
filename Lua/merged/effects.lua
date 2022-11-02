@@ -14,12 +14,11 @@ function effects(timer)
 	doeffect(timer,nil,"power","electricity",2,5,8,{2,4})
 	doeffect(timer,nil,"power2","electricity",2,5,8,{5,4})
 	doeffect(timer,nil,"power3","electricity",2,5,8,{4,4})
-	--doeffect(timer,"play",nil,"music",1,2,30,{0,3})
 	
 	local rnd = math.random(2,4)
 	doeffect(timer,nil,"end","unlock",1,1,10,{1,rnd},"inwards")
-	--rnd = math.random(0,2)
-	--doeffect(timer,"melt","unlock",1,1,10,{4,rnd},"inwards")
+
+	doeffect(timer,nil,"visit","unlock",1,2,8,{0,3},"visitrule")
 
 	doeffect(timer,nil,"visit","unlock",1,2,8,{0,3},"visitrule")
 	

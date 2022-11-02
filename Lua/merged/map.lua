@@ -41,3 +41,42 @@ function displaysigntext(x,y,ignore)
 	
 	return false
 end
+
+function uplevel()
+	local id = #leveltree
+	local parentid = #leveltree - 1
+	
+	local oldlevel = generaldata.strings[CURRLEVEL]
+	generaldata2.strings[PREVIOUSLEVEL] = oldlevel
+	MF_store("save",generaldata.strings[WORLD],"Previous",oldlevel)
+	latestleveldetails = {lnum = -1, ltype = -1}
+	
+	if (id == 0) then
+		MF_alert("Already at map root")
+		
+		if (generaldata.strings[WORLD] ~= generaldata.strings[BASEWORLD]) and (editor.values[INEDITOR] == 0) then
+			MF_end_single()
+			MF_credits(1)
+		end
+	end
+	
+	if (parentid > 1) then
+		generaldata.strings[PARENT] = leveltree[parentid - 1]
+	else
+		generaldata.strings[PARENT] = ""
+	end
+	
+	if (id > 1) then
+		generaldata.strings[CURRLEVEL] = leveltree[parentid]
+	else
+		generaldata.strings[CURRLEVEL] = ""
+	end
+	
+	table.remove(leveltree, id)
+	table.remove(leveltree_id, id)
+	
+	--this is the only line i added to this function
+	visit_fullsurrounds = ""
+
+	return oldlevel
+end

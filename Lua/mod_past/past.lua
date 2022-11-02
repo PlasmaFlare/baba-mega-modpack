@@ -37,6 +37,30 @@ condlist["past"] = function(params,checkedconds,checkedconds_,cdata)
 	return result, checkedconds
 end
 
+--[[ 
+  @mods(past) - An alternate system to storing the "donepast" property per unit. This stores unit.values[ID]'s
+  of all texts involved in a past rule. unit.values[ID] is more effective since it (should be) consistent across
+  undos.
+
+  This fixes an issue with the original past mod, where forming a past rule using transformed/created text causes an infinite
+  past replay loop. The original past mod relied on storing a boolean, called "donepast", within the unit itself. donepast is 
+  used to mark which texts to not restart the past replay on if that text is used to form a past rule. This variable
+  persists as long as the containing unit persists. When starting a past replay, it continuosly calls undo() until the undo stack
+  is empty before replaying the events. And when undoing a "create" event, it *deletes* the object instead!
+  SO, donepast gets deleted! And therefore the infinite loop happens!
+ ]]
+donepast_units = {}
+
+function add_donepast_unit(unit)
+  donepast_units[unit.values[ID]] = true
+end
+function remove_donepast_unit(unit)
+  donepast_units[unit.values[ID]] = nil
+end
+function has_donepast_unit(unit)
+  return donepast_units[unit.values[ID]] ~= nil
+end
+
 -- This will reset certain functions upon level start/restart
 local function resetstuff()
   undowasupdated = false
@@ -48,6 +72,7 @@ local function resetstuff()
   pastrules = {}
   prepastrules = {}
   startpoint = 1
+  donepast_units = {}
 end
 table.insert( mod_hook_functions["level_start"],resetstuff)
 table.insert( mod_hook_functions["level_restart"],resetstuff)
@@ -100,7 +125,7 @@ table.insert( mod_hook_functions["rule_baserules"],
                 if (b ~= 0) then
                   local bunit = mmf.newObject(b)
 
-                  bunit.donepast = true
+                  add_donepast_unit(bunit)
                 end
               end
             end
@@ -221,7 +246,7 @@ function dopast()
   							if (b ~= 0) then
   								local bunit = mmf.newObject(b)
 
-  								if bunit.donepast ~= true then
+                  if not has_donepast_unit(bunit) then
   									valid = true
                     break
   								end
@@ -359,7 +384,7 @@ table.insert( mod_hook_functions["always"],
               updateundo = true
               doundo = true
               for id,unit in pairs(units) do
-                addundo({"create",unit.strings[UNITNAME],unit.values[ID],-1,"create",unit.values[XPOS],unit.values[YPOS],unit.values[DIR]})
+                addundo({"create",unit.strings[UNITNAME],unit.values[ID],-1,"create",unit.values[XPOS],unit.values[YPOS],unit.values[DIR], true}) --@mods(past) - the extra "true" argument marks this undo line as being created during a past replay
               end
               newundo()
             end
@@ -409,9 +434,11 @@ function pastthing(turnsleft)
   MF_letterclear("pasttime")
   MF_letterclear("pastrules")
   if inputstatus[1] == "stop" or inputstatus[1] == "go" then
-    writetext("(paused, press " .. past_go .. " to step)",-1,screenw * 0.5 - 12,screenh * 0.5 - 75,"pasttime",true,1,true,{3,2})
+    writetext("(paused, press " .. past_go .. " to step. "..past_pause.." to continue replay)",-1,screenw * 0.5 - 12,screenh * 0.5 - 75,"pasttime",true,2,true,{3,2})
+  else
+    writetext("(hold " .. past_go .. " to fast forward. "..past_pause.." to pause replay)",-1,screenw * 0.5 - 12,screenh * 0.5 - 75,"pasttime",true,2,true,{3,2})
   end
-  writetext("past turns left:" .. turnsleft,-1,screenw * 0.5 - 12,screenh * 0.5 - 60,"pasttime",true,1,true,{3,2})
+  writetext("past turns left:" .. turnsleft,-1,screenw * 0.5 - 12,screenh * 0.5 - 60,"pasttime",true,2,true,{3,2})
   writepastrules("past","pastrules",427.0,216.0)
 end
 function writepastrules(parent,name,x_,y_)

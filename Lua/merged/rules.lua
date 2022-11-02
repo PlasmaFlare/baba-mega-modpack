@@ -1709,8 +1709,11 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 				end
 			end
 		end
-		
-		if groupcond then
+
+		-- @mods(this) - prevent any pnouns from being a "member" of a group. Pnouns aren't objects, but references to objects/
+		-- This was needed because "THIS is group is group" generates the subrule "THIS is THIS", which cannot be processed since
+		-- the second THIS doesn't have a unitid.
+		if groupcond and not is_pnoun_target then
 			table.insert(groupfeatures, rule)
 		end
 
@@ -2191,7 +2194,7 @@ function postrules(alreadyrun_)
 	for i,unit in ipairs(units) do
 		--@mods(past)
 		if unit.active == false and doingpast == false then
-			unit.donepast = false
+			remove_donepast_unit(unit)
 		end
 		
 		unit.active = false
@@ -2241,7 +2244,7 @@ function postrules(alreadyrun_)
 
 								--@mods(past)
 								if amundoing or keyssofar == nil or #keyssofar < 1 then
-									bunit.donepast = true
+									add_donepast_unit(bunit)
 								end
 
 								newruleids[b] = 1

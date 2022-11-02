@@ -173,7 +173,7 @@ function get_property_unitid_from_rule(rule, include_letters)
     local i = #ids
     while i > 0 do
         local u = mmf.newObject(ids[i][1])
-        if u and u.strings[NAME] == "group" then
+        if u and string.sub(u.strings[NAME], 1,5) == "group" then
             plasma_utils.debug_assert(ids[i+2] and ids[i+2], "Provided a group rule whose ids weren't formatted correctly to find the text property's unitid. Rule: \""..rulebase[1].." "..rulebase[2].." "..rulebase[3].."\"")
             
             return get_singlular_unitid_from_rule(ids[i+2])

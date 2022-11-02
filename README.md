@@ -12,7 +12,7 @@ When it comes to deciding which mods to merge, there will be several restriction
 ## Alright, serious time over! Where are the goods?!
 ### [Download the modpack in the Releases Section!](https://github.com/PlasmaFlare/baba-mega-modpack/releases)
 
-**Compatable Baba version: 469 on PC**
+**Compatable Baba version: 473 on PC**
 
 The main version currently includes these mods:
 - [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By @Plasmaflare#5648 (me!)
@@ -44,6 +44,15 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.2.1** (11/2/22)
+  - Updated for Baba Version 473
+  - [PLASMA] Update to 1.5.11
+  - [PERSIST] Updated to 1.2.2
+  - [PERSIST] Fixed persisted objects going off-grid when level height is at certain values
+  - [PATASHU] Fixed "LEVEL SHIFTS X" not working
+  - [PAST] Fixed infinite past replay case when using a transformed text in a past rule
+  - [PAST] Updated text display for past replay to show pause and fast forward controls
+  - Added a dumb sound effect
 - **1.2.0** (7/18/22)
   - Added Visit mod!
   - [VISIT x PERSIST] Support for persisting objects via Visit

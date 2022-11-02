@@ -659,6 +659,32 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 						end
 					end
 				end
+
+				if featureindex["level"] ~= nil then
+					for _, feature in ipairs(featureindex["level"]) do
+						local rule = feature[1]
+						if rule[2] == "shifts" then
+							local leveldir = mapdir
+							local valid = false
+							
+							if testcond(feature[2],1) then
+								for a,unit in ipairs(units) do
+									if unit.strings[UNITNAME] == rule[3] then
+										local x,y = unit.values[XPOS],unit.values[YPOS]
+										
+										if floating_level(unit.fixed) then
+											updatedir(unit.fixed, leveldir)
+											
+											if (isstill_or_locked(unit.fixed,x,y,leveldir) == false) and (issleep(unit.fixed,x,y) == false) then
+												table.insert(moving_units, {unitid = unit.fixed, reason = "shift", state = 0, moves = 1, dir = unit.values[DIR], xpos = x, ypos = y})
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
 				
 				if enable_directional_shift then
 					do_directional_shift_level_parsing(moving_units, been_seen, mapdir)

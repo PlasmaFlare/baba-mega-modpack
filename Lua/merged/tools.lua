@@ -806,13 +806,16 @@ function findfears(unitid,feartargets,x_,y_)
 end
 
 function getlevelsurrounds(firstlevelid)
-	generaldata.strings[VISIT_INNERLEVELID] = tostring(firstlevelid)
+	visit_innerlevelid = tostring(firstlevelid)
 
 	local loopindex = 1
 	local addedids = {firstlevelid}
 	local dirids = {"r","u","l","d","dr","ur","ul","dl","o"}
-	local result = ""
+	local result = generaldata.strings[CURRLEVEL] .. ","
 
+	--This would be a for loop, but it's adding things to the table being looped through.
+	--Specifically, if the levelsurrounds contain an object with level data, the code has to
+	--get surrounds for that level too in case it gets visited.
 	while #addedids >= loopindex do
 		local levelid = addedids[loopindex]
 		
@@ -863,38 +866,13 @@ function getlevelsurrounds(firstlevelid)
 		loopindex = loopindex + 1
 	end
 	
-	generaldata2.strings[LEVELSURROUNDS] = result
+	visit_fullsurrounds = result
 end
 
 function parsesurrounds()
-	local fullsurrounds = MF_parsestring(generaldata2.strings[LEVELSURROUNDS])
-	local surrounds = {}
-	local stage = 0
-
-	for i,v in ipairs(fullsurrounds) do
-		if v == "levelseparator" then
-			stage = 1
-		elseif stage == 1 and v == generaldata.strings[VISIT_INNERLEVELID] then
-			stage = 2
-		elseif stage == 1 then
-			stage = 0
-		elseif stage == 2 then
-			stage = 3
-		elseif stage == 3 then
-			stage = 4
-		elseif stage == 4 then
-			stage = 5
-		elseif stage == 5 then
-			if v == "levelseparator" then
-				break
-			else
-				table.insert(surrounds,v)
-			end
-		end
-	end
-
+	local surrounds = MF_parsestring(generaldata2.strings[LEVELSURROUNDS])
 	local result = {}
-	stage = 0
+	local stage = 0
 	
 	local dirids = {"r","u","l","d","dr","ur","ul","dl","o"}
 	
