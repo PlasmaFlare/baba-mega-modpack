@@ -41,13 +41,18 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 # Pending mods I'm looking to merge
 
 ### [Metatext Mod](https://github.com/EvanEMV/Baba-Is-You---Metatext-Mod) - By @EmilyEmmi#9099
+(Update 11/4/22)
+Looks like Hempuli hasn't posted much updates on Baba Is You. So I'm *slightly* more inclined to proceed with adding the Metatext mod. However, after some initial investigations on the merge process, it looks like merging the metatext mod might be tricker than I thought. So I'm still hesitant to officially add the metatext mod to the main branch. But I'll see what I can do.
+
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.2.2** (11/4/22)
+  - [VISIT] Updated to 1.2.3. This should fix not being able to chain multiple visits.
 - **1.2.1** (11/2/22)
   - Updated for Baba Version 473
   - [PLASMA] Update to 1.5.11
-  - [PERSIST] Updated to 1.2.2
+  - [VISIT] Updated to 1.2.2
   - [PERSIST] Fixed persisted objects going off-grid when level height is at certain values
   - [PATASHU] Fixed "LEVEL SHIFTS X" not working
   - [PAST] Fixed infinite past replay case when using a transformed text in a past rule

@@ -56,7 +56,7 @@ function changemenu(menuitem,extra)
 	
 	editor.values[SCROLLAMOUNT] = 0
 
-	--these are the only four lines i added to this function
+	--these are the only four lines i added to this function for visit
 	if menuitem == "main" then
 		visit_innerlevelid = ""
 		visit_fullsurrounds = ""
