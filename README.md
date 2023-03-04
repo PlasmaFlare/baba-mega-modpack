@@ -12,7 +12,7 @@ When it comes to deciding which mods to merge, there will be several restriction
 ## Alright, serious time over! Where are the goods?!
 ### [Download the modpack in the Releases Section!](https://github.com/PlasmaFlare/baba-mega-modpack/releases)
 
-**Compatable Baba version: 473 on PC**
+**Compatable Baba version: 476 on PC**
 
 The main version currently includes these mods:
 - [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By @Plasmaflare#5648 (me!)
@@ -47,6 +47,10 @@ Looks like Hempuli hasn't posted much updates on Baba Is You. So I'm *slightly* 
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
+- **1.2.3** (3/4/22)
+  - Updated for Baba version 476
+  - Fixed gui buttons not working after 476 update
+  - [Plasma]: Updated to 1.5.12
 - **1.2.2** (11/4/22)
   - [VISIT] Updated to 1.2.3. This should fix not being able to chain multiple visits.
 - **1.2.1** (11/2/22)

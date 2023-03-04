@@ -15,6 +15,8 @@ local function get_special_cut_mappings()
         nudgeright =     "nudge",
         nudgedown =      "nudge",
         ellipsis =       "ooo",    
+        besideright =    "beside",    
+        besideleft =     "beside",    
     }
 
     -- Arrow properties

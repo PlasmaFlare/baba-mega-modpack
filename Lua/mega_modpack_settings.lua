@@ -173,21 +173,26 @@ menufuncs.mega_modpack_settings = {
         MF_letterclear("leveltext")
         MF_cursorvisible(0) -- Letting this be off until Hempuli fixes "escbutton" field not working
 
+        local dynamic_structure = {}
+
         write_settings_header("Mega Modpack Settings", 0, 3, name)
 
         local item_x = screenw * 0.1
         local item_y = f_tilesize
         createbutton("mega_mod_return",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
+        table.insert(dynamic_structure, {{"mega_mod_return"}})
 
         -- Render sub-settings buttons
         item_y = item_y + f_tilesize * 3        
         make_plasma_button("pfsettings", name, buttonid, "Plasma Modpack Settings", item_x,item_y, false)
         item_y = item_y + f_tilesize * 2
+        table.insert(dynamic_structure, {{"pfsettings"}})
 
         for _, mod_name in ipairs(mod_setting_order) do
             local mod_data = mod_setting_data[mod_name]
             make_plasma_button(mod_data.key, name, buttonid, mod_data.button_label, item_x,item_y, false)
             item_y = item_y + f_tilesize * 2
+            table.insert(dynamic_structure, {{mod_data.key}})
         end
 
         item_x = screenw * 0.5
@@ -206,6 +211,8 @@ menufuncs.mega_modpack_settings = {
         local version_x = screenw-(#mega_modpack_name * 10) - 20
         local version_y = screenh - f_tilesize
         writetext(mega_modpack_name_with_color, -1, version_x, version_y, name)
+
+        buildmenustructure(dynamic_structure)
     end
 }
 buttonclick_list["mega_modpack_settings"] = function()
@@ -233,12 +240,15 @@ for name, data in pairs(mod_setting_data) do
         enter = function(parent,name,buttonid,extra)
             MF_letterclear("leveltext")
             MF_cursorvisible(0) -- Letting this be off until Hempuli fixes "escbutton" field not working
+
+            local dynamic_structure = {}
     
             write_settings_header(mod_data.page_title, mod_data.color[1], mod_data.color[2], name)
     
             local item_x = screenw * 0.1
             local item_y = f_tilesize
             createbutton("mega_modpack_settings",screenw * 0.15,item_y,2,8,1,langtext("return"),name,3,2,buttonid)
+            table.insert(dynamic_structure, {{"mega_modpack_settings"}})
             item_y = item_y + f_tilesize * 3 
     
             for _, setting_name in ipairs(mod_data.settings_order) do
@@ -246,12 +256,14 @@ for name, data in pairs(mod_setting_data) do
                 local toggle = read_setting(mod_data.cfg_section, data)
                 local togglevalue, color = gettoggle(toggle)
                 make_plasma_button(data.buttonfunc, name, buttonid, data.display, item_x, item_y, togglevalue, data.tooltip)
+                table.insert(dynamic_structure, {{data.buttonfunc}})
                 
                 item_y = item_y + f_tilesize * 2
             end
 
             item_y = screenh - f_tilesize
             make_plasma_button(revert_settings_key, name, buttonid, "Restore default settings", 20, item_y)
+            table.insert(dynamic_structure, {{revert_settings_key}})
 
             gd = MF_create("object001")
             MF_loadsprite(gd,"text_persist_0",27,true)
@@ -261,6 +273,8 @@ for name, data in pairs(mod_setting_data) do
             testunit.values[XPOS] = 619
             testunit.values[YPOS] = 294
             testunit.values[ONLINE] = 1
+
+            buildmenustructure(dynamic_structure)
         end,
         leave = function(parent,name)
             MF_cleanremove(gd)
