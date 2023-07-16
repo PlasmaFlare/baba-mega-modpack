@@ -183,6 +183,7 @@ table.insert(mod_hook_functions["always"],
 table.insert(mod_hook_functions["level_start"], 
     function()
         on_level_start = true
+        objectlist["text"] = 1 -- this fixes the "this(text) mimic x" + "X is this(Y)".
     end
 )
 
@@ -442,11 +443,15 @@ function scan_added_feature_for_pnoun_rule(rule, visible)
 
         if target_is_pnoun then
             local target_this_unitid = get_target_unitid_from_rule(rule)
-            table.insert(pnouns_to_add, target_this_unitid)
+            if target_this_unitid ~= nil then
+                table.insert(pnouns_to_add, target_this_unitid)
+            end
         end
         if property_is_pnoun then
             local property_this_unitid = get_property_unitid_from_rule(rule)
-            table.insert(pnouns_to_add, property_this_unitid)
+            if property_this_unitid ~= nil then
+                table.insert(pnouns_to_add, property_this_unitid)
+            end
         end
 
         -- A pnoun unit can only belong to one pnoun group. If a pnoun can be categorized into two
@@ -956,7 +961,7 @@ function check_updatecode_status_from_raycasting()
     return result
 end
 
-function get_raycast_objects(this_text_unitid)
+function get_raycast_objects(this_text_unitid, exclude_bpr)
     if RaycastBank:is_valid_ray_id(this_text_unitid) then
         return RaycastBank:get_raycast_objects(this_text_unitid)
     end
@@ -964,7 +969,22 @@ function get_raycast_objects(this_text_unitid)
     if raycast_data[this_text_unitid] == nil then
         return {}, 0
     else
-        return raycast_data[this_text_unitid].raycast_objects, raycast_data[this_text_unitid].raycast_object_count
+        if exclude_bpr then
+            local out_ray_objects = {}
+            local count = 0
+            for tileid, ray_objects in pairs(raycast_data[this_text_unitid].raycast_positions) do
+                if not (blocked_tiles[tileid] or explicit_relayed_tiles[tileid] or explicit_passed_tiles[tileid]) then
+                    for _, ray_object in ipairs(ray_objects) do
+                        out_ray_objects[ray_object] = true
+                        count = count + 1
+                    end
+                end
+            end
+
+            return out_ray_objects, count
+        else
+            return raycast_data[this_text_unitid].raycast_objects, raycast_data[this_text_unitid].raycast_object_count
+        end
     end
 end
 
@@ -1370,7 +1390,7 @@ local function process_pnoun_features(pnoun_features, feature_extradata, filter_
                     -- Rule display in pause menu
                     if #target_options > 0 and filter_property_func(property) then
                         local ray_names = {}
-                        for ray_object in pairs(get_raycast_objects(this_text_unitid)) do
+                        for ray_object in pairs(get_raycast_objects(this_text_unitid), true) do
                             local ray_unitid, _, _, ray_tileid = utils.parse_object(ray_object)
                             local ray_name = ""
                             if ray_unitid == 2 then
@@ -1397,7 +1417,7 @@ local function process_pnoun_features(pnoun_features, feature_extradata, filter_
                     end
                 else
                     local ray_names = {}
-                    for ray_object in pairs(get_raycast_objects(this_text_unitid)) do
+                    for ray_object in pairs(get_raycast_objects(this_text_unitid, true)) do
                         local ray_unitid, _, _, ray_tileid = utils.parse_object(ray_object)
                         local ray_name = ""
                         if ray_unitid == 2 then
@@ -1630,6 +1650,10 @@ function do_subrule_pnouns()
                         end
 
                         local curr_raycast_data = raycast_data[pnoun_unitid]
+
+                        -- Added an assert here since there are many cases where this happens
+                        plasma_utils.debug_assert(curr_raycast_data, "Getting raycast data failed for unitid: "..pnoun_unitid.." | unitstring: "..utils.unitstring(pnoun_unitid))
+
                         local raycast_objects_by_tileid, extradata, raycast_trace = simulate_raycast_with_pnoun(pnoun_unitid, raycast_settings)
                         recorded_raycast_simulations[pnoun_unitid] = {
                             raycast_objects_by_tileid = raycast_objects_by_tileid,

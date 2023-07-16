@@ -1528,8 +1528,10 @@ function block(small_)
 				end
 			end
 
+			--Roughly copied from the Win code, this handles when a You object touches a Visit object, triggering a visit.
+			local shoulddovisit = false
+			local dovisitdir
 			local visit = findfeature(nil,"is","visit")
-			
 			if (visit ~= nil) then
 				for a,b in ipairs(visit) do
 					if (b[1] ~= "empty") then
@@ -1537,13 +1539,21 @@ function block(small_)
 						if (#flag > 0) then
 							for c,d in ipairs(flag) do
 								if floating(d,unit.fixed,x,y) and (hasfeature(b[1],"is","done",d,x,y) == nil) and (hasfeature(b[1],"is","end",d,x,y) == nil) then
-									dovisit(mmf.newObject(d).values[DIR])
+									shoulddovisit = true
+									dovisitdir = (mmf.newObject(d).values[DIR])
 									break
 								end
 							end
 						end
 					end
+					if shoulddovisit then
+						break
+					end
 				end
+			end
+			if shoulddovisit then
+				dovisit(dovisitdir)
+				break
 			end
 
 			local win = findfeature(nil,"is","win")

@@ -325,7 +325,17 @@ function get_stablerule_display(feature)
     local ids = feature[3]
     local tags = feature[4]
 
-    if #ids == 0 then
+    local has_base_tag = false
+    local has_mimic_tag = false
+    for _,b in ipairs(tags) do
+        if (b == "mimic") then
+            has_mimic_tag = true
+        elseif (b == "base") then
+            has_base_tag = true
+        end
+    end
+
+    if #ids == 0 and not has_base_tag then
         if (#custom == 0) then
             return rule[1].." "..rule[2].." "..rule[3]
         else
@@ -341,7 +351,6 @@ function get_stablerule_display(feature)
             -- invertconds() can directly modify the feature's conds. But it tends to add new conds with
             -- parenthesis around the condtype (EX: "(not near)", "(on)" ). So to show the original rule,
             -- ignore the conds with parenthesis
-            local is_inverted_cond = string.find(condtype, "%(")
             if string.find(condtype, "%(") then
                 handling_or = true
             end
@@ -444,10 +453,8 @@ function get_stablerule_display(feature)
         text = text .. custom .. " " .. custom
     end
     
-    for a,b in ipairs(tags) do
-        if (b == "mimic") then
-            text = text .. " (mimic)"
-        end
+    if has_mimic_tag then
+        text = text .. " (mimic)"
     end
 
     return text

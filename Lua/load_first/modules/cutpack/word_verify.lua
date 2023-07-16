@@ -97,8 +97,11 @@ end
 
 local function get_valid_characters()
     local valid_chars = {}
-    for i, v in pairs(editor_objlist) do
-        if v.type == 5 and v.unittype == "text" then
+    for i, v in pairs(editor_currobjlist) do
+        local type = getactualdata_objlist(v.object, "type")
+        local unittype = getactualdata_objlist(v.object, "unittype")
+        
+        if type == 5 and unittype == "text" then
             if string.sub(v.name, 1, 5) == "text_" then
                 local character = string.sub(v.name, 6)
                 valid_chars[character] = true

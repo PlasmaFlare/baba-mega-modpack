@@ -12,16 +12,16 @@ When it comes to deciding which mods to merge, there will be several restriction
 ## Alright, serious time over! Where are the goods?!
 ### [Download the modpack in the Releases Section!](https://github.com/PlasmaFlare/baba-mega-modpack/releases)
 
-**Compatable Baba version: 476 on PC**
+**Compatable Baba version: 477c on PC**
 
-The main version currently includes these mods:
-- [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By @Plasmaflare#5648 (me!)
-- [Patashu's Modpack](https://github.com/Patashu/Baba-is-You-Pata-Redux-Mods) - By @Patashu#8123
-- Persist (From the levelpack "Persistence") - By @Randomizer#0769
-- Past - By @EmilyEmmi#9099 (Or simply Emily)
-- Stringwords (STARTS/CONTAINS/ENDS) - By @Wrecking Games#8371
-- Word Salad (ALIVE/VESSEL/VESSEL2/KARMA/SINFUL/HOP) - By @Huebird#3471
-- Visit - By @Btd456Creeper#3711
+The main version currently includes these mods (author handles are from discord):
+- [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By PlasmaFlare (@plasmaflare)
+- [Patashu's Modpack](https://github.com/Patashu/Baba-is-You-Pata-Redux-Mods) - By Patashu (@patashu)
+- Persist (From the levelpack "Persistence") - By Randomizer (@randomizer)
+- Past - By Emily (@emilyemmi)
+- Stringwords (STARTS/CONTAINS/ENDS) - By Wrecking Games (@wreckinggames)
+- Word Salad (ALIVE/VESSEL/VESSEL2/KARMA/SINFUL/HOP) - By Huebaba (@huebird.)
+- Visit - By Btd456Creeper (@btd456creeper)
 
 # How to install
 1. This modpack only works when you install into a levelpack. Pick an existing levelpack or create a new levelpack in the baba editor. (From baba title: `Level Editor -> Edit Levelpacks -> Create a new levelpack`)
@@ -36,7 +36,7 @@ The main version currently includes these mods:
 # Where do I report bugs?
 Feel free to submit an issue to this Github repository to report bugs.
 
-If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can also report bugs in #mega-modpack-bugs, which is a thread of #asset-is-make. You can also report bugs in #asset-is-make, but I recommend the first channel just to avoid spamming the other channels.
+If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can also report bugs in [#mega-modpack-bugs](https://discord.com/channels/556333985882439680/971375736713773076), which is a thread of #asset-is-make. You can also report bugs in #asset-is-make, but I recommend the first channel just to avoid spamming the other channels.
 
 # Pending mods I'm looking to merge
 
@@ -47,7 +47,11 @@ Looks like Hempuli hasn't posted much updates on Baba Is You. So I'm *slightly* 
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
 # Changelog
-- **1.2.3** (3/4/22)
+- **1.2.4** (7/15/23)
+  - [PLASMA] Updated for Plasma modpack version 1.5.13 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.13))
+  - [VISIT] Updated to 1.2.4
+    - "Fixed a bug where Visiting would be checked multiple times, causing a You And You object to Visit across two levels and "skip" the one in the middle"
+- **1.2.3** (3/4/23)
   - Updated for Baba version 476
   - Fixed gui buttons not working after 476 update
   - [Plasma]: Updated to 1.5.12

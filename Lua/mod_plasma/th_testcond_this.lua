@@ -135,7 +135,23 @@ local function get_singlular_unitid_from_rule(idgroup, include_letters)
     end
 end
 
--- @TODO: this could be useful for general purposes. Maybe move to a common lua file later?
+local function get_singular_name_from_rule(idgroup, include_letters)
+    local unitid = get_singlular_unitid_from_rule(idgroup, include_letters)
+    if unitid == nil then
+        return nil, nil
+    elseif type(unitid) == "table" then
+        local s = {}
+        for _, letter_unitid in ipairs(unitid) do
+            local unit = mmf.newObject(letter_unitid)
+            table.insert(s, unit.strings[NAME])
+        end
+        return table.concat(s), unitid, true
+    else
+        local unit = mmf.newObject(unitid)
+        return unit.strings[NAME], unitid, false
+    end
+end
+
 --[[ 
     This gets the unitid of the target/noun text that is stored in the rule.
     If the target word is formed by letters:
@@ -148,13 +164,11 @@ function get_target_unitid_from_rule(rule, include_letters)
         return nil
     end
     
-    local rulebase = rule[1]
     local ids = rule[3]
 
     return get_singlular_unitid_from_rule(ids[1])
 end
 
--- @TODO: this could be useful for general purposes. Maybe move to a common lua file later?
 --[[ 
     This gets the unitid of the property text that is stored in the rule.
     If the property word is formed by letters:
@@ -167,25 +181,46 @@ function get_property_unitid_from_rule(rule, include_letters)
         return nil
     end
     
-    local rulebase = rule[1]
     local ids = rule[3]
 
-    local i = #ids
-    while i > 0 do
-        local u = mmf.newObject(ids[i][1])
-        if u and string.sub(u.strings[NAME], 1,5) == "group" then
-            plasma_utils.debug_assert(ids[i+2] and ids[i+2], "Provided a group rule whose ids weren't formatted correctly to find the text property's unitid. Rule: \""..rulebase[1].." "..rulebase[2].." "..rulebase[3].."\"")
-            
-            return get_singlular_unitid_from_rule(ids[i+2])
+    local check_second_rule = false
+
+    local name, unitid = nil, nil
+    local check_name = nil
+
+    name, unitid = get_singular_name_from_rule(ids[3], include_letters)
+    check_name = get_singular_name_from_rule(ids[2], include_letters)
+    if ids[6] ~= nil then
+        if string.sub(name,1,5) == "group" and check_name == "is" then
+            check_second_rule = true
+        else
+            if check_name == "mimic" then
+                for _, tag in ipairs(tags) do
+                    if tag == "mimic" then
+                        check_second_rule = true
+                        break
+                    end
+                end
+            end
         end
-        i = i - 1
     end
-    if i == 0 then
-        i = i + 3
-        plasma_utils.debug_assert(ids[i] and ids[i][1], "Provided a rule whose ids weren't formatted correctly to find the text property's unitid. Rule: \""..rulebase[1].." "..rulebase[2].." "..rulebase[3].."\" ")
-        
-        return get_singlular_unitid_from_rule(ids[i])
+
+    if check_second_rule then
+        local i = 6
+        name, unitid = get_singular_name_from_rule(ids[i], include_letters)
+        check_name = get_singular_name_from_rule(ids[i-1], include_letters)
+        while string.sub(name,1,5) == "group" and check_name == "is" do
+            i = i + 3
+            if ids[i] == nil then
+                break
+            end
+
+            name, unitid = get_singular_name_from_rule(ids[i], include_letters)
+            check_name = get_singular_name_from_rule(ids[i-1], include_letters)
+        end
     end
+
+    return unitid, name
 end
 
 

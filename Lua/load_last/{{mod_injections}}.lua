@@ -110,6 +110,25 @@ function addundo(line,...)
 end
 
 --[[ 
+    @mods(stable) - Injection reason: if the game calls destroylevel() for any reason (e.g infinite loop, too complex, level is weak),
+        all units in the level will be destroyed. If there were any stableunits before, we need to update the stable state to account
+        for this suddden deletion of all stableunits. This would automatically delete any stable indicators to prevent nil errors from
+        stabledisplay trying to access a stableunit to attach the stable indicator to, and only getting nil.
+]]
+local old_destroylevel_do = destroylevel_do
+function destroylevel_do(...)
+    local do_stablestate_update = (generaldata.values[MODE] ~= 5) and destroylevel_check
+
+    local ret = table.pack(old_destroylevel_do(...))
+
+    if do_stablestate_update then
+        update_stable_state(false)
+    end
+
+    return table.unpack(ret)
+end
+
+--[[ 
     @mods(stable) - Injection reason:
         - (see giant block comment below)
         - treat "not stable" condtype as "stable".

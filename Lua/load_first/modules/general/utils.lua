@@ -196,7 +196,7 @@ utils = {
         else
             local unit = mmf.newObject(unitid)
             if not unit then return "Deleted object with unitid: "..unitid end
-            return string.format("(%s with id %d at %d,%d | unitid %s)", unit.strings[NAME], unit.values[ID], unit.values[XPOS], unit.values[YPOS], tostring(unitid))
+            return string.format("(%s with id %d at %d,%d | unitid %s)", unit.strings[UNITNAME], unit.values[ID], unit.values[XPOS], unit.values[YPOS], tostring(unitid))
         end
     end,
 
