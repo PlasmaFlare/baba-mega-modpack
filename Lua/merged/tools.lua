@@ -249,10 +249,11 @@ function create(name,x,y,dir,oldx_,oldy_,float_,skipundo_,leveldata_,customdata)
 	newunit.values[ID] = id
 	newunit.values[FLOAT] = float
 	newunit.flags[CONVERTED] = true
-
-
-	persistreverts[id]=customdata
-
+	
+	if customdata ~= nil then
+		persistreverts[id]=customdata[1]
+		newunit.karma=customdata[2]
+	end
 	
 	if (leveldata_ ~= nil) and (#leveldata_ > 0) then
 		newunit.strings[U_LEVELFILE] = leveldata_[1]
