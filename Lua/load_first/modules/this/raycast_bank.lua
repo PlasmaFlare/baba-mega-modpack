@@ -122,10 +122,12 @@ function RaycastBank:is_valid_ray_id(id)
     return tonumber(id) and self.objects[tonumber(id)] ~= nil
 end
 
-table.insert(mod_hook_functions["level_start"],
-    function()
-        RaycastBank:reset()
-    end
-)
+-- Injection reason: reset the Raycast Bank. We do it in clearunits instead of levelstart since we want to sync with stablestate and THIS
+local old_clearunits = clearunits
+function clearunits(...)
+    local ret = old_clearunits(...)
+    RaycastBank:reset()
+    return ret
+end
 
 return RaycastBank

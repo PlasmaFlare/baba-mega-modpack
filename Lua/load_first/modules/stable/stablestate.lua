@@ -406,10 +406,10 @@ function get_stablerule_display(feature)
                                     else
                                         text = text .. custom .. " "
                                     end
+                                end
                                     
-                                    if (#cond[2] > 1) and (c ~= #cond[2]) then
-                                        text = text .. "& "
-                                    end
+                                if (#cond[2] > 1) and (c ~= #cond[2]) then
+                                    text = text .. "& "
                                 end
                             end
                         end

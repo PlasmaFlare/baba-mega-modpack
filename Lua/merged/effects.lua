@@ -2,6 +2,10 @@ function effects(timer)
 	doeffect(timer,nil,"win","unlock",1,2,20,{2,4})
 	doeffect(timer,nil,"reset","unlock",1,2,20,{3,1})
 	doeffect(timer,nil,"best","unlock",6,30,2,{2,4})
+	doeffect(timer,nil,"router","unlock",2,2,20,{4,4})
+	doeffect(timer,nil,"channel1","unlock",2,2,20,{2,1})
+	doeffect(timer,nil,"channel2","unlock",2,2,20,{3,4})
+	doeffect(timer,nil,"channel3","unlock",2,2,20,{4,3})
 	doeffect(timer,nil,"tele","glow",1,5,20,{1,4})
 	doeffect(timer,nil,"hot","hot",1,80,10,{0,1})
 	doeffect(timer,nil,"bonus","bonus",1,2,20,{4,1})
@@ -40,7 +44,7 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 		
 		if (this ~= nil) then
 			for k,v in ipairs(this) do
-				if (v[1] ~= "empty") and (v[1] ~= "all") and (v[1] ~= "level") then
+				if (v[1] ~= "empty") and (v[1] ~= "all")--[[ and (v[1] ~= "level")--]] then -- EDIT: fix a basegame bug where level objects don't emit particles
 					local these = findall(v,true)
 					
 					if (#these > 0) then
@@ -132,7 +136,8 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 							end
 						end
 					end
-				elseif ((v[1] == "empty") or (v[1] == "level")) then
+				end -- EDIT: same bugfix, originally this was a elseif rather than two if
+				if ((v[1] == "empty") or (v[1] == "level")) then
 					local ignorebroken = false
 					if (word3 == "broken") then
 						ignorebroken = true
@@ -148,12 +153,57 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 								if (unitmap[tileid] == nil) or ((unitmap[tileid] ~= nil) and (#unitmap[tileid] == 0)) then
 									if (v[1] ~= "empty") or ((v[1] == "empty") and testcond(v[2],2,i,j,nil,nil,nil,ignorebroken)) then
 										local partid = 0
+										-- EDIT: reduce level particles when the "reducedlvl" rule is used
+										local skipthis = false
+										if ((v[1] == "level") and (specialrule == "reducedlvl") and (math.random(1,12) < 12)) then
+											skipthis = true
+										end
 										
-										if (chance > 1) then
-											if (math.random(chance) == 1) then
+										if (not skipthis) then
+											if (chance > 1) then
+												if (math.random(chance) == 1) then
+													if (specialrule ~= "nojitter") then
+														partid = MF_particle(particle,i,j,c1,c2,layer)
+
+														if (partid ~= nil) and (specialrule == "visitrule") and (partid ~= 0) then
+															local udir
+															if cause == "level" then
+																udir = mapdir * math.pi / 2
+															elseif cause == "empty" then
+																udir = math.random(0,3) * math.pi / 2
+															end
+															
+															local part = mmf.newObject(partid)
+															
+															part.values[ONLINE] = 2
+															local midx = math.floor(roomsizex * 0.5)
+															local midy = math.floor(roomsizey * 0.5)
+															local mx = i + 0.5 - midx
+															local my = j + 0.5 - midy
+															
+															local dir = 0 - math.atan2(my, mx)
+															local dist = math.sqrt(my ^ 2 + mx ^ 2)
+															local roomrad = math.rad(generaldata2.values[ROOMROTATION])
+															
+															mx = Xoffset + (midx + math.cos(dir + roomrad) * dist * zoom) * tilesize * spritedata.values[TILEMULT]
+															my = Yoffset + (midy - math.sin(dir + roomrad) * dist * zoom) * tilesize * spritedata.values[TILEMULT]
+															
+															part.x = mx + math.random(0 - tilesize * 0.5 * zoom,tilesize * 0.5 * zoom)
+															part.y = my + math.random(0 - tilesize * 0.5 * zoom,tilesize * 0.5 * zoom)
+															part.values[XPOS] = part.x
+															part.values[YPOS] = part.y
+															
+															part.values[XVEL] = math.cos(udir) * 10
+															part.values[YVEL] = math.sin(udir) * -10
+														end
+													else
+														partid = MF_staticparticle(particle,i,j,c1,c2,layer)
+													end
+												end
+											else
 												if (specialrule ~= "nojitter") then
 													partid = MF_particle(particle,i,j,c1,c2,layer)
-
+													
 													if (partid ~= nil) and (specialrule == "visitrule") and (partid ~= 0) then
 														local udir
 														if cause == "level" then
@@ -188,44 +238,6 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 												else
 													partid = MF_staticparticle(particle,i,j,c1,c2,layer)
 												end
-											end
-										else
-											if (specialrule ~= "nojitter") then
-												partid = MF_particle(particle,i,j,c1,c2,layer)
-												
-												if (partid ~= nil) and (specialrule == "visitrule") and (partid ~= 0) then
-													local udir
-													if cause == "level" then
-														udir = mapdir * math.pi / 2
-													elseif cause == "empty" then
-														udir = math.random(0,3) * math.pi / 2
-													end
-													
-													local part = mmf.newObject(partid)
-													
-													part.values[ONLINE] = 2
-													local midx = math.floor(roomsizex * 0.5)
-													local midy = math.floor(roomsizey * 0.5)
-													local mx = i + 0.5 - midx
-													local my = j + 0.5 - midy
-													
-													local dir = 0 - math.atan2(my, mx)
-													local dist = math.sqrt(my ^ 2 + mx ^ 2)
-													local roomrad = math.rad(generaldata2.values[ROOMROTATION])
-													
-													mx = Xoffset + (midx + math.cos(dir + roomrad) * dist * zoom) * tilesize * spritedata.values[TILEMULT]
-													my = Yoffset + (midy - math.sin(dir + roomrad) * dist * zoom) * tilesize * spritedata.values[TILEMULT]
-													
-													part.x = mx + math.random(0 - tilesize * 0.5 * zoom,tilesize * 0.5 * zoom)
-													part.y = my + math.random(0 - tilesize * 0.5 * zoom,tilesize * 0.5 * zoom)
-													part.values[XPOS] = part.x
-													part.values[YPOS] = part.y
-													
-													part.values[XVEL] = math.cos(udir) * 10
-													part.values[YVEL] = math.sin(udir) * -10
-												end
-											else
-												partid = MF_staticparticle(particle,i,j,c1,c2,layer)
 											end
 										end
 									end

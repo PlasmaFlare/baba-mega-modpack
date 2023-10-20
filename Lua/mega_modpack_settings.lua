@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.2.4"
+local mega_modpack_version = "1.3.0"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
@@ -10,6 +10,10 @@ local mod_list = {
     {name = "Stringwords",          author = "Wrecking Games",          color={3,4}},
     {name = "Word Salad",           author = "Huebird",                 color={2,1}},
     {name = "Visit",                author = "Btd456Creeper",           color={0,3}},
+    {name = "Glitch",               author = "Btd456Creeper",           color={0,3}},
+    {name = "Nuhuh",                author = "Btd456Creeper",           color={0,3}},
+    {name = "Offset",               author = "Btd456Creeper",           color={0,3}},
+    {name = "Local",                author = "Mathguy",                 color={1,3}},
 }
 
 local mod_setting_data = {
@@ -88,8 +92,26 @@ local mod_setting_data = {
         },
         settings_order = {"music_when_only_vessels", "do_hop_particles"}
     },
+    btd456creeper = {
+        key = "btd456creeper_settings",
+        button_label = "Btd456creeper Settings",
+        page_title = "$0,3Btd456creeper$0,3 Settings",
+        cfg_section = "btd456creeper",
+        color = {0,3},
+        settings_apply_func = apply_btdcreeper_glitch_mod_settings, --@TODO: if there are multiple seperate mods, probably add support for calling multiple functions
+        settings = {
+            infloop_level_glitch = {
+                name = "infloop_level_glitch",
+                display = "Infinite loop level glitch",
+                default = 0,
+                buttonfunc = "ws_infloopLevelGlitch",
+                tooltip = "Infinite loop-ed levels transform into glitch objects. Only works if glitch object is in the world's pallete (like with normal transforms)"
+            },
+        },
+        settings_order = {"infloop_level_glitch"}
+    }
 }
-local mod_setting_order = {"patashu", "word_salad", "persist"}
+local mod_setting_order = {"patashu", "word_salad", "persist", "btd456creeper"}
 
 local function setfenv(fn, env)
     local i = 1

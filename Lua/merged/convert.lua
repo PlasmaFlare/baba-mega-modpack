@@ -1,5 +1,7 @@
 function dolevelconversions()
-	if (#features > 0) and (generaldata.values[WINTIMER] == 0) and (destroylevel_check == false) then
+	--This line, added for the glitch mod, skips some checks if the level is turning into a glitch object.
+	--Also: Make sure the level wasn't just started! Otherwise the game breaks on a level that infinite loops from the starting state, for some reason.
+	if (generaldata.values[WINTIMER] == 0) and (((#features > 0) and (destroylevel_check == false)) or (INFLOOP_LEVEL_GLITCH and (#undobuffer > 1) and (levelconversions[1][1] == "glitch"))) then
 		local mats = levelconversions
 		local mat1 = "level"
 		local levelmats = {}
@@ -33,7 +35,10 @@ function dolevelconversions()
 				objectfound = true
 			end
 			
-			if testcond(conds,1) and objectfound then
+			--This line, added for the glitch mod, makes a special case for glitch objects.
+			--Normally, a level can't turn into something if that something isn't present in the level.
+			--Note that a glitch object must still be present in the overworld, or the level won't transform properly!
+			if testcond(conds,1) and (objectfound or (INFLOOP_LEVEL_GLITCH and (mat2 == "glitch"))) then
 				if (mat2 ~= "revert") then
 					table.insert(levelmats, mat2)
 					MF_alert("Converting level into " .. mat2)
@@ -170,14 +175,14 @@ function doconvert(data,extrarule_)
 	
 	local unitid = data[1]
 	local unit = {}
-	local x,y,dir,name,id,completed,float,ogname,karma = 0,0,0,"",0,0,0,"" -- EDIT: added local var "karma"
+	local x,y,dir,name,id,completed,float,ogname = 0,0,0,"",0,0,0,""
 	local delthis = false
 	local delthis_createall = false
 	local delthis_createall_ = false
 	
 	if (unitid ~= 2) then
 		unit = mmf.newObject(unitid)
-		x,y,dir,name,id,completed,ogname,karma = unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.strings[UNITNAME],unit.values[ID],unit.values[COMPLETED],unit.originalname,unit.karma -- EDIT: Set karma flag for the new unit
+		x,y,dir,name,id,completed,ogname = unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.strings[UNITNAME],unit.values[ID],unit.values[COMPLETED],unit.originalname -- EDIT: Set karma flag for the new unit
 		persistrevert = nil
 		if persistreverts ~= nil then
 			persistrevert = persistreverts[id]
@@ -343,6 +348,44 @@ function doconvert(data,extrarule_)
 							end
 						end
 					end
+					
+					-- EDIT: add check for "ECHO"
+					if (featureindex["echo"] ~= nil) then
+						for i,v in ipairs(featureindex["echo"]) do
+							local rule = v[1]
+							local conds = v[2]
+							
+							if (rule[2] == "is") and (rule[3] == "echo") then
+								if (rule[1] == newname) then
+									updatecode = 1
+									break
+								elseif (unitid ~= 2) then
+									if (rule[1] == unitname) then
+										updatecode = 1
+										break
+									end
+								end
+								
+								if (#conds > 0) then
+									for a,b in ipairs(conds) do
+										if (b[2] ~= nil) and (#b[2] > 0) then
+											for c,d in ipairs(b[2]) do
+												if (d == newname) or ((string.sub(d, 1, 4) == "not ") and (string.sub(d, 5) ~= newname)) then
+													updatecode = 1
+													break
+												elseif (unitid ~= 2) then
+													if (d == unitname) or ((string.sub(d, 1, 4) == "not ") and (string.sub(d, 5) ~= unitname)) then
+														updatecode = 1
+														break
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
 				end
 				
 				delthis = true
@@ -451,6 +494,19 @@ function doconvert(data,extrarule_)
 							end
 						end
 					end
+					-- EDIT: add check for ECHO
+					if (featureindex["echo"] ~= nil) then
+						for i,v in ipairs(featureindex["echo"]) do
+							local rule = v[1]
+							if (rule[1] == newunit.strings[UNITNAME]) then
+								updatecode = 1
+							elseif (unitid ~= 2) then
+								if (rule[1] == unit.strings[UNITNAME]) then
+									updatecode = 1
+								end
+							end
+						end
+					end
 				end
 			elseif (mat2 == "createall") then
 				createall_single(2,nil,i,j)
@@ -479,7 +535,7 @@ function convert(stuff,mats,dolevels_)
 					for i,v in ipairs(featureindex[mat1]) do
 						local rule = v[1]
 						
-						if (rule[2] == "is") and (rule[3] == "select") then
+						if (rule[2] == "is") and ((rule[3] == "select") or (rule[3] == "enter")) then -- EDIT: also check for ENTER
 							editor.values[NAMEFLAG] = 0
 							break
 						end
@@ -641,6 +697,93 @@ function convert(stuff,mats,dolevels_)
 	if (mat1 == "level") and dolevels then
 		for i,v in ipairs(mats) do
 			table.insert(levelconversions, v)
+		end
+	end
+end
+
+function conversion(dolevels_)
+	local alreadydone = {}
+	local dolevels = dolevels_ or false
+	
+	for i,v in pairs(features) do
+		local words = v[1]
+		
+		local operator = words[2]
+		
+		if (operator == "is") or (operator == "write") or (operator == "become") then
+			local output = {}
+			local name = words[1]
+			local thing = words[3]
+			
+			if (getmat(thing) ~= nil) or (thing == "not " .. name) or (thing == "all") or (unitreference[thing] ~= nil) or ((thing == "text") and (unitreference["text_text"] ~= nil)) or (thing == "revert") or ((operator == "write") and getmat_text("text_" .. name)) then
+				if (featureindex[name] ~= nil) and (alreadydone[name] == nil) then
+					alreadydone[name] = 1
+					
+					for a,b in ipairs(featureindex[name]) do
+						local rule = b[1]
+						local conds = b[2]
+						local target,verb,object = rule[1],rule[2],rule[3]
+						
+						if (verb == "is") or (verb == "become") then
+							-- EDIT: add check for ECHO
+							if (target == name) and (object ~= "word") and (object ~= "echo") and ((object ~= name) or (verb == "become")) then
+								if (object ~= "text") and (object ~= "revert") then
+									if (object == "not " .. name) then
+										table.insert(output, {"error", conds, "is"})
+									else
+										for d,mat in pairs(objectlist) do
+											if (string.sub(d, 1, 5) ~= "group") and (d == object) then
+												table.insert(output, {object, conds, "is"})
+											end
+										end
+									end
+								elseif (name ~= object) or (verb == "become") then
+									if (object ~= "revert") then
+										table.insert(output, {object, conds, "is"})
+									else
+										table.insert(output, 1, {object, conds, "is"})
+									end
+								end
+							end
+						elseif (verb == "write") then
+							if (string.sub(object, 1, 4) ~= "not ") and (target == name) then
+								table.insert(output, {object, conds, "write"})
+							end
+						end
+					end
+				end
+				
+				if (#output > 0) then
+					local conversions = {}
+					
+					for k,v3 in pairs(output) do
+						local object = v3[1]
+						local conds = v3[2]
+						local op = v3[3]
+						
+						if (op == "is") then
+							-- EDIT: add check for ECHO
+							if (findnoun(object,nlist.brief) == false) and (object ~= "word") and (object ~= "echo") and (object ~= "text") then
+								table.insert(conversions, v3)
+							elseif (object == "all") then
+								--[[
+								addaction(0,{"createall",{name,conds},dolevels})
+								createall({name,conds})
+								]]--
+								table.insert(conversions, {"createall",conds})
+							elseif (object == "text") then
+								table.insert(conversions, {"text_" .. name,conds})
+							end
+						elseif (op == "write") then
+							table.insert(conversions, v3)
+						end
+					end
+					
+					if (#conversions > 0) then
+						convert(name,conversions,dolevels)
+					end
+				end
+			end
 		end
 	end
 end

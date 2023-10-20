@@ -4,7 +4,7 @@
 
 
 
--- OVERRIDE: add karma for destructions by collision (OPEN/SHUT, EAT)
+-- OVERRIDE: add karma for destructions by collision (OPEN/SHUT, EAT) while accounting for REPENT
 
 --[[ @Merge: move() was merged ]]
 
@@ -15,7 +15,7 @@
 --[[ @Merge: trypush() was merged ]]
 
 
--- OVERRIDE: add karma for when a WEAK object is pushed into an obstacle, implement HOP for pushables
+-- OVERRIDE: add karma for when a WEAK object is pushed into an obstacle unless the obstacle is REPENT, implement HOP for pushables
 
 --[[ @Merge: dopush() was merged ]]
 

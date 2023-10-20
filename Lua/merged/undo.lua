@@ -79,6 +79,26 @@ function undo()
 									end
 								end
 							end
+						
+							-- EDIT: ECHO units again
+							local undoechounits = currentundo.echounits
+							local undoechorelatedunits = currentundo.echorelatedunits
+							
+							if (#undoechounits > 0) then
+								for a,b in pairs(undoechounits) do
+									if (b == line[9]) then
+										updatecode = 1
+									end
+								end
+							end
+							
+							if (#undoechorelatedunits > 0) then
+								for a,b in pairs(undoechorelatedunits) do
+									if (b == line[9]) then
+										updatecode = 1
+									end
+								end
+							end
 						end
 					else
 						particles("hot",line[3],line[4],1,{1, 1})
@@ -141,8 +161,13 @@ function undo()
 							unit.followed = followed
 							unit.back_init = back_init
 							unit.originalname = ogname
-							unit.karma = karma -- EDIT
+							unit.karma = karma -- EDIT: keep karma when undoing
 							
+							--First override for Offset starts here.
+							unit.xoffset = line[XOFFSETUNDOLINE]
+							unit.yoffset = line[YOFFSETUNDOLINE]
+							--First override for Offset ends here.
+
 							if (unit.strings[UNITTYPE] == "text") then
 								updatecode = 1
 							end
@@ -171,7 +196,27 @@ function undo()
 								end
 							end
 
-							--If the unit was actually a destroyed 'PERSIST', oops. Don't actually bring it back. It's dead, Jim.
+							-- EDIT: echo again
+							local undoechounits = currentundo.echounits
+							local undoechorelatedunits = currentundo.echorelatedunits
+							
+							if (#undoechounits > 0) then
+								for a,b in ipairs(undoechounits) do
+									if (b == line[6]) then
+										updatecode = 1
+									end
+								end
+							end
+							
+							if (#undoechorelatedunits > 0) then
+								for a,b in ipairs(undoechorelatedunits) do
+									if (b == line[6]) then
+										updatecode = 1
+									end
+								end
+							end
+							
+							--If the unit was actually a destroyed 'NOUNDO', oops. Don't actually bring it back. It's dead, Jim.
 							if (not convert and unit_ignores_undos(unitid)) then
 								unit = {}
 								delunit(unitid)
@@ -235,6 +280,26 @@ function undo()
 									end
 								end
 							end
+						
+							-- EDIT: echo again
+							local undoechounits = currentundo.echounits
+							local undoechorelatedunits = currentundo.echorelatedunits
+							
+							if (#undoechounits > 0) then
+								for a,b in ipairs(undoechounits) do
+									if (b == line[3]) then
+										updatecode = 1
+									end
+								end
+							end
+							
+							if (#undoechorelatedunits > 0) then
+								for a,b in ipairs(undoechorelatedunits) do
+									if (b == line[3]) then
+										updatecode = 1
+									end
+								end
+							end
 						end
 					end
 				elseif (style == "backset") then
@@ -293,6 +358,9 @@ function undo()
 					
 					local undowordunits = currentundo.wordunits
 					local undowordrelatedunits = currentundo.wordrelatedunits
+					-- EDIT: ECHO once more
+					local undoechounits = currentundo.echounits
+					local undoechorelatedunits = currentundo.echorelatedunits
 					
 					local unitid = getunitid(line[10])
 					if (unitid ~= nil) and (unitid ~= 0) then
@@ -313,6 +381,23 @@ function undo()
 					
 					if (#undowordrelatedunits > 0) then
 						for a,b in pairs(undowordrelatedunits) do
+							if (b == line[10]) then
+								updatecode = 1
+							end
+						end
+					end
+					
+					-- EDIT: ECHO!!
+					if (#undoechounits > 0) then
+						for a,b in pairs(undoechounits) do
+							if (b == line[10]) then
+								updatecode = 1
+							end
+						end
+					end
+					
+					if (#undoechorelatedunits > 0) then
+						for a,b in pairs(undoechorelatedunits) do
 							if (b == line[10]) then
 								updatecode = 1
 							end
@@ -374,15 +459,21 @@ function undo()
 					if (unit ~= nil) then --paradox-proofing
 						unit.holder = line[3]
 					end
+				elseif (style == "offset") then --Second and final override for Offset starts here.
+					local unit = mmf.newObject(getunitid(line[2]))
+					unit.xoffset = line[3]
+					unit.yoffset = line[4] --Second and final override for Offset ends here.
                 elseif (style == "stable") then
                     handle_stable_undo(line)
 				elseif (style == "levelkarma") then -- Level karma got updated
-					levelKarma = false
+					local previous_karma = line[2] or false
+					levelKarma = previous_karma
 				elseif (style == "unitkarma") then -- Unit karma got updated
 					local unitid = getunitid(line[2])
 					local unit = mmf.newObject(unitid)
+					local previous_karma = line[3] or false
 					
-					unit.karma = false
+					unit.karma = previous_karma
                 end
 			end
 		end
@@ -390,6 +481,9 @@ function undo()
 		local nextundo = undobuffer[1]
 		nextundo.wordunits = {}
 		nextundo.wordrelatedunits = {}
+		-- EDIT: pass echo units (could this be handled better?)
+		nextundo.echounits = {}
+		nextundo.echorelatedunits = {}
 		nextundo.visiontargets = {}
 		nextundo.fixedseed = Fixedseed
 		
@@ -398,6 +492,14 @@ function undo()
 		end
 		for i,v in ipairs(currentundo.wordrelatedunits) do
 			table.insert(nextundo.wordrelatedunits, v)
+		end
+		
+		-- EDIT: pass ECHO stuff to the next undo
+		for i,v in ipairs(currentundo.echounits) do
+			table.insert(nextundo.echounits, v)
+		end
+		for i,v in ipairs(currentundo.echorelatedunits) do
+			table.insert(nextundo.echorelatedunits, v)
 		end
 		
 		if (#currentundo.visiontargets > 0) then
@@ -446,6 +548,9 @@ function newundo(resetundo)
 		thisundo.wordunits = {}
 		thisundo.wordrelatedunits = {}
 		thisundo.visiontargets = {}
+		-- EDIT: store echo units???
+		thisundo.echounits = {}
+		thisundo.echorelatedunits = {}
 
 		if (#wordunits > 0) then
 			for i,v in ipairs(wordunits) do
@@ -468,6 +573,23 @@ function newundo(resetundo)
 					table.insert(thisundo.wordrelatedunits, wunit.values[ID])
 				else
 					--table.insert(thisundo.wordrelatedunits, wunit.values[ID])
+				end
+			end
+		end
+		
+		-- EDIT: ECHO again
+		if (#echounits > 0) then
+			for i,v in ipairs(echounits) do
+				local eunit = mmf.newObject(v[1])
+				table.insert(thisundo.echounits, eunit.values[ID])
+			end
+		end
+		
+		if (#echorelatedunits > 0) then
+			for i,v in ipairs(echorelatedunits) do
+				if (v[1] ~= 2) then
+					local eunit = mmf.newObject(v[1])
+					table.insert(thisundo.echorelatedunits, eunit.values[ID])
 				end
 			end
 		end

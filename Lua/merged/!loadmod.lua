@@ -9,6 +9,7 @@ local load_order = {
 	"editor_objectlist_func.lua",
 	"effects.lua",
 	"features.lua",
+	"letterunits.lua",
 	"map.lua",
 	"mapcursor.lua",
 	"menu.lua",
@@ -16,7 +17,8 @@ local load_order = {
 	"rules.lua",
 	"syntax.lua",
 	"tools.lua",
-	"undo.lua"
+	"undo.lua",
+	"update.lua"
 }
 
 for _, file in ipairs(load_order) do

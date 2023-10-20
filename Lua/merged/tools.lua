@@ -299,8 +299,9 @@ function create(name,x,y,dir,oldx_,oldy_,float_,skipundo_,leveldata_,customdata)
 	addunitmap(newunitid,x,y,newunit.strings[UNITNAME])
 	dynamic(newunitid)
 	
+	-- Add check for ECHO units along with WORD units
 	local testname = getname(newunit)
-	if (hasfeature(testname,"is","word",newunitid,x,y) ~= nil) then
+	if ((hasfeature(testname,"is","word",newunitid,x,y) ~= nil) or (hasfeature(testname,"is","echo",newunitid,x,y) ~= nil)) then
 		updatecode = 1
 	end
 	
@@ -867,6 +868,16 @@ function getlevelsurrounds(firstlevelid)
 		end
 		
 		loopindex = loopindex + 1
+
+		-- EDIT: find all texts (including the level itself) at the level's position
+		-- NOTE: this assumes that the text being echoed is of the same type as within the level (for example if BABA is a noun in the map, it's treated as a noun inside the level as well)
+		ws_overlapping_texts = {}
+		local text_ids = findtype({"text"}, x, y)
+		for _,textid in ipairs(text_ids) do
+			local text_unit = mmf.newObject(textid)
+			local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
+			table.insert(ws_overlapping_texts, text_data)
+		end
 	end
 	
 	visit_fullsurrounds = result
@@ -895,6 +906,389 @@ function parsesurrounds()
 				table.insert(result[dir], v)
 			end
 		end
+	end
+	
+	return result
+end
+
+function update(unitid,x,y,dir_)
+	if (unitid ~= nil) then
+		local unit = mmf.newObject(unitid)
+
+		local unitname = unit.strings[UNITNAME]
+		local dir,olddir = unit.values[DIR],unit.values[DIR]
+		local tiling = unit.values[TILING]
+		local unittype = unit.strings[UNITTYPE]
+		local oldx,oldy = unit.values[XPOS],unit.values[YPOS]
+		
+		if (dir_ ~= nil) then
+			dir = dir_
+		end
+		
+		if (x ~= oldx) or (y ~= oldy) or (dir ~= olddir) then
+			updateundo = true
+			
+			addundo({"update",unitname,oldx,oldy,olddir,x,y,dir,unit.values[ID]},unitid)
+			
+			local ox,oy = x-oldx,y-oldy
+			
+			if (math.abs(ox) + math.abs(oy) == 1) and (unit.values[MOVED] == 0) then
+				unit.x = unit.x + ox * tilesize * spritedata.values[TILEMULT] * generaldata2.values[ZOOM] * 0.25
+				unit.y = unit.y + oy * tilesize * spritedata.values[TILEMULT] * generaldata2.values[ZOOM] * 0.25
+			end
+			
+			unit.values[XPOS] = x
+			unit.values[YPOS] = y
+			unit.values[DIR] = dir
+			unit.values[MOVED] = 1
+			unit.values[POSITIONING] = 0
+
+			updateunitmap(unitid,oldx,oldy,x,y,unit.strings[UNITNAME])
+			
+			if (tiling == 1) then
+				dynamic(unitid)
+				dynamicat(oldx,oldy)
+			end
+			
+			if (unittype == "text") then
+				updatecode = 1
+			end
+			
+			-- Add check for ECHO along with WORD
+			if (featureindex["word"] ~= nil) then
+				checkwordchanges(unitid,unitname)
+			end
+			if (featureindex["echo"] ~= nil) then
+				ws_checkechochanges(unitid)
+			end
+		end
+	else
+		MF_alert("Tried to update a nil unit")
+	end
+end
+
+function delunit(unitid)
+	local unit = mmf.newObject(unitid)
+	
+	-- MF_alert("DELUNIT " .. unit.strings[UNITNAME])
+	
+	if (unit ~= nil) then
+		local name = getname(unit)
+		local x,y = unit.values[XPOS],unit.values[YPOS]
+		local unitlist = unitlists[name]
+		local unitlist_ = unitlists[unit.strings[UNITNAME]] or {}
+		local unittype = unit.strings[UNITTYPE]
+		
+		if (unittype == "text") then
+			updatecode = 1
+		end
+		
+		x = math.floor(x)
+		y = math.floor(y)
+		
+		if (unitlist ~= nil) then
+			for i,v in pairs(unitlist) do
+				if (v == unitid) then
+					v = {}
+					table.remove(unitlist, i)
+					break
+				end
+			end
+		end
+		
+		if (unitlist_ ~= nil) then
+			for i,v in pairs(unitlist_) do
+				if (v == unitid) then
+					v = {}
+					table.remove(unitlist_, i)
+					break
+				end
+			end
+		end
+		
+		-- TÄMÄ EI EHKÄ TOIMI
+		local tileid = x + y * roomsizex
+		
+		if (unitmap[tileid] ~= nil) then
+			for i,v in pairs(unitmap[tileid]) do
+				if (v == unitid) then
+					v = {}
+					table.remove(unitmap[tileid], i)
+				end
+			end
+		
+			if (#unitmap[tileid] == 0) then
+				unitmap[tileid] = nil
+			end
+		end
+		
+		if (unittypeshere[tileid] ~= nil) then
+			local uth = unittypeshere[tileid]
+			
+			local n = unit.strings[UNITNAME]
+			
+			if (uth[n] ~= nil) then
+				uth[n] = uth[n] - 1
+				
+				if (uth[n] == 0) then
+					uth[n] = nil
+				end
+			end
+		end
+		
+		if (unit.strings[UNITTYPE] == "text") and (codeunits ~= nil) then
+			for i,v in pairs(codeunits) do
+				if (v == unitid) then
+					v = {}
+					table.remove(codeunits, i)
+				end
+			end
+			
+			if (unit.values[TYPE] == 5) then
+				for i,v in pairs(letterunits) do
+					if (v == unitid) then
+						v = {}
+						table.remove(letterunits, i)
+					end
+				end
+			end
+		end
+
+		if (unit.values[TILING] > 1) and (animunits ~= nil) then
+			for i,v in pairs(animunits) do
+				if (v == unitid) then
+					v = {}
+					table.remove(animunits, i)
+				end
+			end
+		end
+		
+		if (unit.values[TILING] == 1) and (tiledunits ~= nil) then
+			for i,v in pairs(tiledunits) do
+				if (v == unitid) then
+					v = {}
+					table.remove(tiledunits, i)
+				end
+			end
+		end
+		
+		if (#wordunits > 0) and (unit.values[TYPE] == 0) and (unit.strings[UNITTYPE] ~= "text") then
+			for i,v in pairs(wordunits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.wordunits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(wordunits, i)
+				end
+			end
+		end
+		
+		if (#wordrelatedunits > 0) then
+			for i,v in pairs(wordrelatedunits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.wordrelatedunits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(wordrelatedunits, i)
+				end
+			end
+		end
+		
+		-- EDIT: store echo units (?). Will it work? Will it explode? Only time can tell
+		if (#echounits > 0) and (unit.strings[UNITTYPE] ~= "text") then
+			for i,v in pairs(echounits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.echounits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(echounits, i)
+				end
+			end
+		end
+		
+		if (#echorelatedunits > 0) then
+			for i,v in pairs(echorelatedunits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.echorelatedunits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(echorelatedunits, i)
+				end
+			end
+		end
+		
+		if (#visiontargets > 0) then
+			for i,v in pairs(visiontargets) do
+				if (v == unitid) then
+					local currentundo = undobuffer[1]
+					--table.insert(currentundo.visiontargets, unit.values[ID])
+					v = {}
+					table.remove(visiontargets, i)
+				end
+			end
+		end
+	else
+		MF_alert("delunit(): no object found with id " .. tostring(unitid) .. " (delunit)")
+	end
+		
+	for i,v in ipairs(units) do
+		if (v.fixed == unitid) then
+			v = {}
+			table.remove(units, i)
+		end
+	end
+	
+	for i,data in pairs(updatelist) do
+		if (data[1] == unitid) and (data[2] ~= "convert") then
+			data[2] = "DELETED"
+		end
+	end
+end
+
+function destroylevel(special_)
+	destroylevel_check = true
+	destroylevel_style = special_ or ""
+	
+	if (destroylevel_style == "infinity") or (destroylevel_style == "toocomplex") then
+		setsoundname("removal",2)
+		--Glitch code starts here.
+		if (INFLOOP_LEVEL_GLITCH) and (destroylevel_style == "infinity") then
+			levelconversions = {{"glitch", {}, "is"}}
+		end
+		--Glitch code ends here.
+	elseif (destroylevel_style ~= "empty") and (destroylevel_style ~= "bonus") then
+		setsoundname("removal",1)
+	end
+	
+	MF_musicstate(1)
+	generaldata2.values[NOPLAYER] = 1
+end
+
+function findgroup(grouptype_,invert_,limit_,checkedconds_)
+	local result = {}
+	local limit = limit_ or 0
+	local invert = invert_ or false
+	local grouptype = grouptype_ or "group"
+	local found = {}
+	local alreadyused = {}
+	
+	limit = limit + 1
+	
+	local idstring = ""
+	local currmembers = {}
+	local handlerecursion = false
+	
+	for i,v in ipairs(groupmembers) do
+		local name = v[1]
+		local conds = v[2]
+		local gtype = v[3]
+		local recursion = v[4]
+		
+		if (gtype == grouptype) then
+			if hasconds(v) and (unitlists[name] ~= nil) then
+				if (recursion == false) then
+					for a,b in ipairs(unitlists[name]) do
+						local unit = mmf.newObject(b)
+						local x,y = unit.values[XPOS],unit.values[YPOS]
+						
+						if testcond(conds,b,x,y,nil,limit,checkedconds_) then
+							table.insert(result, name)
+							table.insert(currmembers, name)
+							found[name] = 1
+							idstring = idstring .. name
+							break
+						end
+					end
+				else
+					handlerecursion = true
+				end
+			elseif (hasconds(v) == false) then
+				table.insert(result, name)
+				table.insert(currmembers, name)
+				found[name] = 1
+				idstring = idstring .. name
+			end
+		end
+	end
+	
+	local reclimit = 0
+	local curridstring = idstring
+	
+	while handlerecursion and (reclimit < 10) do
+		local newidstring = idstring
+		local newmembers = {}
+		for i,v in ipairs(result) do
+			table.insert(newmembers, v)
+		end
+		
+		for i,v in ipairs(groupmembers) do
+			local name = v[1]
+			local conds = v[2]
+			local gtype = v[3]
+			local recursion = v[4]
+			
+			if recursion and (gtype == grouptype) then
+				if hasconds(v) and (unitlists[name] ~= nil) then
+					for a,b in ipairs(unitlists[name]) do
+						local unit = mmf.newObject(b)
+						local x,y = unit.values[XPOS],unit.values[YPOS]
+						
+						if testcond(conds,b,x,y,nil,limit,checkedconds_,nil,currmembers) then
+							table.insert(newmembers, name)
+							newidstring = newidstring .. name
+							break
+						end
+					end
+				elseif (hasconds(v) == false) then
+					table.insert(newmembers, name)
+					newidstring = newidstring .. name
+				end
+			end
+		end
+		
+		--MF_alert(curridstring .. ", " .. newidstring)
+		
+		if (newidstring ~= curridstring) then
+			currmembers = {}
+			for i,v in ipairs(newmembers) do
+				table.insert(currmembers, v)
+			end
+			curridstring = newidstring
+			reclimit = reclimit + 1
+		else
+			for i,v in ipairs(currmembers) do
+				found[v] = 1
+				idstring = idstring .. v
+				table.insert(result, v)
+			end
+			
+			handlerecursion = false
+		end
+	end
+	
+	if (reclimit >= 10) then
+		HACK_INFINITY = 200
+		destroylevel("infinity")
+		--Glitch line is here
+		dolevelconversions()
+		return
+	end
+	
+	if invert then
+		local actualresult = {}
+		
+		for a,mat in pairs(objectlist) do
+			if (found[a] == nil) and (alreadyused[a] == nil) and (findnoun(a,nlist.short) == false) then
+				table.insert(actualresult, a)
+				alreadyused[a] = 1
+			end
+		end
+		
+		return actualresult
 	end
 	
 	return result

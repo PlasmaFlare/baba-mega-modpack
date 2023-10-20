@@ -322,6 +322,26 @@ function moveblock(onlystartblock_)
 											end
 										end
 										
+										-- EDIT: ECHO once more
+										local undoechounits = currentundo.echounits
+										local undoechorelatedunits = currentundo.echorelatedunits
+										
+										if (#undoechounits > 0) then
+											for a,b in ipairs(undoechounits) do
+												if (b == bline[6]) then
+													updatecode = 1
+												end
+											end
+										end
+										
+										if (#undoechorelatedunits > 0) then
+											for a,b in ipairs(undoechorelatedunits) do
+												if (b == bline[6]) then
+													updatecode = 1
+												end
+											end
+										end
+										
 										table.insert(delname, {newunit.strings[UNITNAME], bline[6], newunit.values[XPOS], newunit.values[YPOS], newunit.values[DIR]})
 									end
 								end
@@ -602,6 +622,17 @@ function block(small_)
 	arrow_prop_mod_globals.group_arrow_properties = true
 
 	
+	-- EDIT: implement REPENT (cleanse the karma status of sinful objects)
+	local isrepent = getunitswitheffect("repent",false,delthese)
+	for id,unit in ipairs(isrepent) do
+		if unit.karma then
+			local x,y = unit.values[XPOS],unit.values[YPOS]
+			local pmult,sound = checkeffecthistory("repent")
+			MF_particles("unlock",x,y,5 * pmult,5,2,1,1)
+			ws_setKarma(unit.fixed, false)
+		end
+	end
+	
 	local iskarma = getunitswitheffect("karma",false,delthese) -- EDIT: Destroy units by KARMA
 	for id,unit in ipairs(iskarma) do
 		if unit.karma and (issafe(unit.fixed) == false) then
@@ -872,7 +903,7 @@ function block(small_)
 				if (#water > 0) then
 					for e,f in ipairs(water) do
 						if floating(f,unit.fixed,x,y) then
-							if (f ~= unit.fixed) then -- EDIT: set KARMA for BOOM objects (can the code be better? probably)
+							if (f ~= unit.fixed) then -- EDIT: set KARMA for BOOM objects, unless they're REPENT (can the code be better? probably)
 								local doboom = true
 								
 								for c,d in ipairs(delthese) do
@@ -883,7 +914,7 @@ function block(small_)
 									end
 								end
 								
-								if (sunk == false or is_unit_guarded(unit.fixed)) and (issafe(f) == false) then
+								if (sunk == false or is_unit_guarded(unit.fixed)) and (issafe(f) == false) and not ws_isrepent(unit.fixed,ux,uy) then
 									ws_setKarma(unit.fixed)
 								end
 								
@@ -1152,15 +1183,15 @@ function block(small_)
 								table.insert(delthese, unit.fixed)
 								doparts = true
 								online = false
-							elseif isKeyUnsafe then -- Door is safe, key isn't
-								ws_setKarma(unit.fixed)
+							elseif isKeyUnsafe and not ws_isrepent(unit.fixed,x,y) then -- Door is safe, key isn't
+								ws_setKarma(unit.fixed) -- Set the karma of the door unless it's REPENT
 							end
 							
 							if isKeyUnsafe then
 								table.insert(delthese, b)
 								doparts = true
-							elseif isDoorUnsafe then -- Key is safe, door isn't
-								ws_setKarma(b)
+							elseif isDoorUnsafe and not ws_isrepent(b,x,y) then -- Key is safe, door isn't
+								ws_setKarma(b) -- Set the karma of the key unless it's REPENT
 							end
 							
 							if doparts then
@@ -1251,7 +1282,7 @@ function block(small_)
 							removalshort = sound
 							removalsound = 1
 						end
-							delthese,removalshort,removalsound = ws_setKarmaOrDestroy(x,y,unit.fixed,delthese,removalshort,removalsound)
+							delthese,removalshort,removalsound = ws_setKarmaOrDestroy(x,y,unit.fixed,delthese,removalshort,removalsound) -- This already checks for REPENT
 						end
 					end
 				end
@@ -1640,7 +1671,8 @@ function levelblock()
 		local lstill = isstill_or_locked(1,nil,nil,mapdir)
 		local lsleep = issleep(1)
 		local lsafe = issafe(1)
-		local lkarma = hasfeature("level","is","karma",1) or false
+		local lkarma = hasfeature("level","is","karma",1) or false -- EDIT: check if the level is karma or repent
+		local lrepent = hasfeature("level","is","repent",1) or false
 		local emptybonus = false
 		local emptydone = false
 		
@@ -2096,8 +2128,12 @@ function levelblock()
 				
 				--MF_alert(rule[1] .. " " .. rule[2] .. " " .. rule[3] .. ", " .. tostring(testcond(conds,1)))
 				
+				-- EDIT: cleanse the level karma if it's REPENT
+				if levelKarma and lrepent then
+					ws_setLevelKarma(false)
+				end
 				
-				if levelKarma and lkarma and (lsafe == false) then -- EDIT: destroy KARMA levels if the karma flag is true
+				if levelKarma and lkarma and (lsafe == false) then -- EDIT: destroy KARMA levels if the karma flag is true and the repent flag is false
 					destroylevel()
 					return
 				end
@@ -2138,7 +2174,7 @@ function levelblock()
 										end
 									end
 									
-									if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+									if destroyedSomething and not lrepent then -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
 										if lkarma and (lsafe == false) then
 											destroylevel()
 											return
@@ -2700,6 +2736,7 @@ function levelblock()
 								local allbonus = findall(b)
 								
 								if (#allbonus > 0) then
+									local destroyedSomething = false -- EDIT: add karma when level collects bonus
 									for c,d in ipairs(allbonus) do
 										if (issafe(d) == false) and floating_level(d) then
 											local unit = mmf.newObject(d)
@@ -2711,6 +2748,16 @@ function levelblock()
 											generaldata.values[SHAKE] = 2
 											setsoundname("removal",2,sound)
 											delete(d)
+											destroyedSomething = true
+										end
+									end
+										
+									if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
+										if lkarma and (lsafe == false) then
+											destroylevel()
+											return
+										else
+											ws_setLevelKarma()
 										end
 									end
 								end
@@ -2785,7 +2832,7 @@ function levelblock()
 											end
 										end
 										
-										if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+										if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
 											if lkarma and (lsafe == false) then
 												destroylevel()
 												return
@@ -2840,7 +2887,7 @@ function levelblock()
 										end
 									end
 									
-									if destroyedSomething then -- Destroy the level if it's KARMA and not SAFE; set karma flag otherwise
+									if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
 										if lkarma and (lsafe == false) then
 											destroylevel()
 											return
@@ -2925,7 +2972,9 @@ function levelblock()
 						end
 						
 						if (#openthese > 0) then
-							ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS OPEN)
+							if not lrepent then
+								ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS OPEN) if level isn't REPENT
+							end
 							generaldata.values[SHAKE] = 8
 							
 							for a,b in ipairs(openthese) do
@@ -2986,7 +3035,9 @@ function levelblock()
 						end
 						
 						if (#openthese > 0) then
-							ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS SHUT)
+							if not lrepent then
+								ws_setLevelKarma() -- EDIT: set level karma when destroying something (LEVEL IS SHUT) if level isn't REPENT
+							end
 							generaldata.values[SHAKE] = 8
 							
 							for a,b in ipairs(openthese) do
@@ -3034,8 +3085,10 @@ function levelblock()
 							end
 						end
 						
-						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS SINK)
+						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS SINK) if level isn't REPENT
+							if not lrepent then
 							ws_setLevelKarma()
+							end
 							generaldata.values[SHAKE] = 3
 							
 							for a,b in ipairs(openthese) do
@@ -3076,8 +3129,10 @@ function levelblock()
 							end
 						end
 						
-						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS BOOM)
+						if (#openthese > 0) then -- EDIT: set level karma when destroying something (LEVEL IS BOOM) if level isn't REPENT
+							if not lrepent then
 							ws_setLevelKarma()
+							end
 							generaldata.values[SHAKE] = 3
 							
 							for a,b in ipairs(openthese) do

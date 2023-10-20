@@ -862,9 +862,11 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 							end
 						elseif (state == 3) then
 							if ((data.reason == "move") or (data.reason == "chill")) then
-								local hop = hasfeature(name,"is","hop",data.unitid,x,y) -- EDIT: implement HOP for MOVE/CHILL units
+								local ndrs = ndirs[dir + 1]
+								local ox,oy = ndrs[1],ndrs[2]
+								local canHop = ws_couldHop(data.unitid,x,y,ox,oy) -- EDIT: implement HOP/HOPS for MOVE/CHILL units
 								local newdir_ = dir
-								if (hop == nil) then -- Don't rotate if the unit is HOP
+								if not canHop then -- Don't rotate if the unit is HOP or if it HOPS something in the next tile
 									newdir_ = rotate(dir)
 								end
 								
@@ -1325,9 +1327,9 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 													data.moves = 1
 													
 													for a,b in ipairs(allobs) do -- EDIT: implement karma for WEAK moving into obstacle
-														if (b ~= 2) and (b ~= -1) and (obslist[a] >= 1) then -- Blame the solid obstacles (?)
+														if (b ~= 2) and (b ~= -1) and (obslist[a] >= 1) and not ws_isrepent(b,x+ox,y+oy) then -- Blame the solid obstacles (?)
 															ws_setKarma(b)
-														elseif (b == -1) then
+														elseif (b == -1) and not hasfeature("level","is","repent",1) then -- Set the level karma to true if the level isn't REPENT
 															ws_setLevelKarma()
 														end
 													end
@@ -1335,16 +1337,37 @@ function movecommand(ox,oy,dir_,playerid_,dir_2,no3d_)
 												solved = true
 											end
 											-- EDIT: implement HOP
-											local hop = hasfeature_count(name,"is","hop",data.unitid,x,y) + 1
-											if (hop > 1) then
-												table.insert(movelist, {data.unitid,ox*hop,oy*hop,olddir,specials,x,y})
+											local hopAmount = hasfeature_count(name,"is","hop",data.unitid,x,y) + 1
+											-- Implement HOPS: check for all units in the next tile. If "OBJECT HOPS OBSTACLE", allow hopping
+											if (featureindex["hops"] ~= nil) then
+												local alreadyCheckedObstacles = {} -- Similar to the HOP property, only the amount of rules affects the jump distance, NOT the number of obstacles of the same type
+												local nextObstacles = findobstacle(x+ox,y+oy)
+												if (#nextObstacles > 0) then
+													for a,b in ipairs(nextObstacles) do
+														if (b == -1) then -- Bumping into level edge
+															hopAmount = hopAmount + hasfeature_count(name,"hops","level",data.unitid,x,y)
+														else  -- Check if there's an obstacle that the unit hops, and add 1 to the hop length
+															local bunit = mmf.newObject(b)
+															local bname = getname(bunit)
+															if not alreadyCheckedObstacles[bname] then
+																hopAmount = hopAmount + hasfeature_count(name,"hops",bname,data.unitid,x,y)
+																alreadyCheckedObstacles[bname] = true
+															end
+														end
+													end
+												else -- Bumping into empty
+													hopAmount = hopAmount + hasfeature_count(name,"hops","empty",data.unitid,x,y)
+												end
+											end
+											if (hopAmount > 1) then
+												table.insert(movelist, {data.unitid,ox*hopAmount,oy*hopAmount,olddir,specials,x,y})
 												if DO_HOP_PARTICLES then
-													MF_particles("poof",x,y,hop,1,4,1,1) -- Spawn particles when hopping
+													MF_particles("poof",x,y,hopAmount,1,4,1,1) -- Spawn particles when hopping
 												end
 												result_checked = true -- ???
 											end
 									
-											local swaps = findfeatureat(nil,"is","swap",x+ox*hop,y+oy*hop,{"still"}) -- Swap when landing
+											local swaps = findfeatureat(nil,"is","swap",x+ox*hopAmount,y+oy*hopAmount,{"still"}) -- Swap when landing
 											if (swaps ~= nil) then
 												for a,b in ipairs(swaps) do
 													if (b ~= 2) then
@@ -1773,10 +1796,9 @@ function move(unitid,ox,oy,dir,specials_,instant_,simulate_,x_,y_)
 						if effect1 or effect2 then
 							local pmult,sound = checkeffecthistory("unlock")
 							soundshort = sound
-							if (issafe(unitid,x,y) or is_unit_guarded(unitid)) and (b ~= 2) and (unitid ~= 2) then -- EDIT: set karma for OPEN/SHUT
+							if (issafe(unitid,x,y) or is_unit_guarded(unitid)) and not ws_isrepent(unitid,x,y) and (b ~= 2) and (unitid ~= 2) then -- EDIT: set karma for OPEN/SHUT, unless the surviving object is REPENT
 								ws_setKarma(unitid)
-							end
-							if (issafe(b,bx,by) or is_unit_guarded(b)) and (b ~= 2) and (unitid ~= 2) then
+							elseif (issafe(b,bx,by) or is_unit_guarded(b)) and not ws_isrepent(b,bx,by) and (b ~= 2) and (unitid ~= 2) then
 								ws_setKarma(b)
 							end
 						end
@@ -1795,8 +1817,8 @@ function move(unitid,ox,oy,dir,specials_,instant_,simulate_,x_,y_)
 					if unlocked then
 						setsoundname("turn",7,soundshort)
 					end
-				elseif (reason == "eat") then -- EDIT: add karma for EAT
-					if (b ~= 2) and (unitid ~= 2) then
+				elseif (reason == "eat") then -- EDIT: add karma for EAT, unless the eater is REPENT
+					if (b ~= 2) and (unitid ~= 2) and not ws_isrepent(unitid,x,y) then
 						ws_setKarma(unitid)
 					end
 					local pmult,sound = checkeffecthistory("eat")
@@ -2622,7 +2644,7 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky,allPus
 		local result = 0
 		
 		local weak = hasfeature(name,"is","weak",unitid,x_,y_)
-		local hop = hasfeature_count(name,"is","hop",unitid,x_,y_) + 1 -- EDIT: get amount of HOP of the pushable
+		local hop = hasfeature(name,"is","hop",unitid,x_,y_) or hasfeature(name,"hops",nil,unitid,x_,y_) -- EDIT: check if we need to deal with hop
 		
 		local nextPushables = {} -- EDIT: get the pushables in the next tile
 		
@@ -2731,31 +2753,52 @@ function dopush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky,allPus
 					result = 0
 					hm = 0
 					
-					for a,b in ipairs(hms) do -- EDIT: add karma to obstacles
-						if (b ~= 2) and (b ~= -1) and (hmlist[a] >= 1) then
+					for a,b in ipairs(hms) do -- EDIT: add karma to obstacles, unless they're REPENT
+						if (b ~= 2) and (b ~= -1) and (hmlist[a] >= 1) and not ws_isrepent(b,x+ox,y+oy) then
 							ws_setKarma(b)
-						elseif (b == -1) then
+						elseif (b == -1) then -- Apparently REPENT already words on level?
 							ws_setLevelKarma()
 						end
 					end
-				elseif (hop > 1) then -- EDIT: implement HOP for pushables (WEAK has higher priority than HOP)
-					local canActuallyHop = true -- A pushable that is HOP can't jump if it's on a pushable that isn't HOP
+				elseif hop then -- EDIT: implement HOP/HOPS
+					local canActuallyHop = true -- Pushable objects that are HOP or HOPS something won't jump if they overlap another pushable that can't hop
 					for _,b in ipairs(allPushables) do
-						local anotherPushable = mmf.newObject(b)
-						local apName = getname(anotherPushable)
-						local canPushableHop = hasfeature(apName,"is","hop",b,x,y)
-						if not canPushableHop then
+						if not ws_couldHop(b,x,y,ox,oy) then
 							canActuallyHop = false
+							-- timedmessage("Could not hop at "..tostring(x).." "..tostring(y),0,0)
 							break
 						end
 					end
 					if canActuallyHop then
-						table.insert(movelist, {unitid,ox*hop,oy*hop,dir,specials,x,y})
+						-- EDIT: implement HOP
+						local hopAmount = hasfeature_count(name,"is","hop",unitid,x,y) + 1 -- The hopping distance is based o the amount of both "X IS HOP" and "X HOPS Y" rules
+						-- Implement HOPS: check for all units in the next tile. If "OBJECT HOPS OBSTACLE", allow hopping
+						if (featureindex["hops"] ~= nil) then
+							local alreadyCheckedObstacles = {} -- Similar to the HOP property, only the amount of rules affects the jump distance, NOT the number of obstacles of the same type
+							local nextObstacles = findobstacle(x+ox,y+oy)
+							if (#nextObstacles > 0) then
+								for a,b in ipairs(nextObstacles) do
+									if (b == -1) then -- Bumping into level edge
+										hopAmount = hopAmount + hasfeature_count(name,"hops","level",unitid,x,y)
+									else  -- Check if there's an obstacle that the unit hops, and add 1 to the hop length
+										local bunit = mmf.newObject(b)
+										local bname = getname(bunit)
+										if not alreadyCheckedObstacles[bname] then
+											hopAmount = hopAmount + hasfeature_count(name,"hops",bname,unitid,x,y)
+											alreadyCheckedObstacles[bname] = true
+										end
+									end
+								end
+							else -- Bumping into empty
+								hopAmount = hopAmount + hasfeature_count(name,"hops","empty",unitid,x,y)
+							end
+						end
+						table.insert(movelist, {unitid,ox*hopAmount,oy*hopAmount,dir,specials,x,y})
 						if DO_HOP_PARTICLES then
-							MF_particles("poof",x,y,hop,1,4,1,1) -- Spawn particles when hopping
+							MF_particles("poof",x,y,hopAmount,1,4,1,1) -- Spawn particles when hopping
 						end
 						
-						local swaps = findfeatureat(nil,"is","swap",x+ox*hop,y+oy*hop,{"still"}) -- Swap when landing
+						local swaps = findfeatureat(nil,"is","swap",x+ox*hopAmount,y+oy*hopAmount,{"still"}) -- Swap when landing
 						if (swaps ~= nil) then
 							for a,b in ipairs(swaps) do
 								if (b ~= 2) then
@@ -2869,7 +2912,6 @@ function trypush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 	end
 	
 	local weak = hasfeature(name,"is","weak",unitid,x_,y_)
-	local hop = hasfeature_count(name,"is","hop",unitid,x_,y_) + 1 -- EDIT: get HOP amount of the pushable unit
 	
 	local pushername = "empty";
 	if (pusherid > 2) then
@@ -2895,7 +2937,8 @@ function trypush(unitid,ox,oy,dir,pulling_,x_,y_,reason,pusherid,is_sticky)
 						done = true
 					elseif (hm == 1) or (hm == -1) then
 						if (pulling == false) or (pulling and (hms[i] ~= pusherid)) then
-							if (hop > 1) then -- EDIT: if the unit can HOP, it's considered pushable
+							 -- EDIT: the unit is considered pushable if it can hop (either by having the HOP property, or because it HOPS something in the next tile)
+							if ws_couldHop(unitid,x,y,ox,oy) then
 								result = math.max(0, result)
 							else
 								result = math.max(1, result)

@@ -6,13 +6,19 @@ local load_order = {
 	"!settings.lua",
 	"!utils.lua",
 	"blocks.lua",
+	"clears.lua",
 	"conditions.lua",
 	"convert.lua",
+	"effects.lua",
+	"load.lua",
 	"map.lua",
+	"mapcursor.lua",
 	"movement.lua",
+	"rules.lua",
 	"syntax.lua",
 	"tools.lua",
-	"undo.lua"
+	"undo.lua",
+	"update.lua"
 }
 
 for _, file in ipairs(load_order) do

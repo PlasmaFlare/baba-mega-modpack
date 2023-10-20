@@ -10,6 +10,6 @@
 
 
 
--- OVERRIDE: keep karma when undoing
+-- OVERRIDE: keep karma when undoing (?)
 
 --[[ @Merge: createall() was merged ]]

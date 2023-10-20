@@ -1,16 +1,16 @@
--- OVERRIDE: keep karma when undoing destruction
+-- OVERRIDE: keep karma when undoing destruction, ECHO interactions with BACK
 
 --[[ @Merge: moveblock() was merged ]]
 
 
 
--- OVERRIDE: add ALIVE interactions with WIN/DEFEAT/etc., add karma for destructions by overlap or BOOM
+-- OVERRIDE: add ALIVE interactions with WIN/DEFEAT/etc., add karma for destructions by overlap or BOOM, implement REPENT
 
 --[[ @Merge: block() was merged ]]
 
 
 
--- OVERRIDE: implement LEVEL IS ALIVE and LEVEL IS KARMA, add karma to level
+-- OVERRIDE: implement LEVEL IS ALIVE and LEVEL IS KARMA, add karma to level, implement LEVEL IS REPENT
 
 --[[ @Merge: levelblock() was merged ]]
 

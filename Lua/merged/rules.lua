@@ -1,4 +1,4 @@
-function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
+function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult_)
 	--[[ 
 		@mods(turning text) - Override reason: provide a hook to reinterpret turning text names based on their direction
 	 ]]
@@ -11,6 +11,7 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 	local justletters = false
 	local cdir = cdir_ or 0
 	local wordunitresult = wordunitresult_ or {}
+	local echounitresult = echounitresult_ or {} -- EDIT: add echounitresult var
 	
 	local ignore_end = false
 	if (ignore_end_ ~= nil) then
@@ -29,11 +30,15 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 			
 			if (v.values[TYPE] ~= 5) and (v.flags[DEAD] == false) then
 				if (v.strings[UNITTYPE] == "text") then
-					--@Turning text: reinterpret the meaning of the turning text by replacing its parsed name with an existing name
-					local v_name = get_turning_text_interpretation(b)
-					--@ Turning text
-
-					table.insert(result, {{b}, w, v_name, v.values[TYPE], cdir})
+					
+					--Check for Nuh Uh! here
+                    if (gettilenegated(x,y) == false) then
+						--@Turning text: reinterpret the meaning of the turning text by replacing its parsed name with an existing name
+						local v_name = get_turning_text_interpretation(b)
+					
+						--@ Turning text
+						table.insert(result, {{b}, w, v_name, v.values[TYPE], cdir})
+					end
 				else
 					if (#wordunits > 0) then
 						local valid = false
@@ -41,8 +46,8 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 						if (wordunitresult[b] ~= nil) and (wordunitresult[b] == 1) then
 							valid = true
 						elseif (wordunitresult[b] == nil) then
-						for c,d in ipairs(wordunits) do
-							if (b == d[1]) and testcond(d[2],d[1]) then
+							for c,d in ipairs(wordunits) do
+								if (b == d[1]) and testcond(d[2],d[1]) then
 									valid = true
 									break
 								end
@@ -50,7 +55,60 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 						end
 						
 						if valid then
-							table.insert(result, {{b}, w, v.strings[UNITNAME], v.values[TYPE], cdir})
+                            --Check for Nuh Uh! here
+                            if (gettilenegated(x,y) == false) then
+								table.insert(result, {{b}, w, v.strings[UNITNAME], v.values[TYPE], cdir})
+							end
+						end
+					end
+					-- EDIT: read ECHO units as text (get the echo unit name, read the values from the echomap, remove overlapping texts)
+					if (#echounits > 0) then
+						local valid = false
+						
+						-- Find valid ECHO units
+						if (echounitresult[b] ~= nil) and (echounitresult[b] == 1) then
+							valid = true
+						elseif (echounitresult[b] == nil) then
+							for c,d in ipairs(echounits) do
+								if (b == d[1]) and testcond(d[2],d[1]) then
+									valid = true
+									break
+								end
+							end
+						end
+						
+						if valid then
+							-- Get all matching text objects from the echo map
+							local matching_texts = echomap[v.strings[UNITNAME]] or {} -- Extra safety measure, it should never be empty, but who knows
+							-- If the object being echo is the outer level, we also add all the texts from the outer level. hooray for meta stuff
+							if (v.strings[UNITNAME] == "level") then
+								local outer_text = echomap["_outerlevel"] or {}
+								for _,outer_data in ipairs(outer_text) do
+									table.insert(matching_texts, outer_data)
+								end
+							end
+							--[[ 
+							if (matching_texts[1] ~= nil) then
+								local first_rulepair = matching_texts[1]
+								timedmessage("word: "..first_rulepair[1], 10, 2)
+								timedmessage("type: "..first_rulepair[2], 10, 3)
+							end 
+							--]]
+							-- Get all text objects on the same tile and remove them (to prevent repeated texts)
+							local this_x = v.values[XPOS]
+							local this_y = v.values[YPOS]
+							local this_tileid = this_x + this_y * roomsizex
+							-- For each remaining text, insert in the table same, but v.strings[UNITNAME] is the text name; v.values[TYPE] is the type of that text
+							for _,text_data in ipairs(matching_texts) do
+								if (text_data[3] ~= this_tileid) then
+									if text_data[4] == nil then
+										for k,v in pairs(text_data) do
+											print(k,v)
+										end
+									end
+									table.insert(result, {{b}, w, get_turning_text_interpretation(text_data[4]), text_data[2], cdir}) -- @Merge: handle turning text with ECHO
+								end
+							end
 						end
 					end
 				end
@@ -86,6 +144,8 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_)
 			--MF_alert(word .. ", " .. tostring(valid) .. ", " .. tostring(dir) .. ", " .. tostring(cdir))
 			
 			if (dir == cdir) and valid then
+                --Nuh Uh! is NOT checked here, because letters are weird.
+                --Instead, for letters, it should be checked in formlettermap().
 				table.insert(result, {unitids, width, word, wtype, dir})
 				letters = true
 			end
@@ -1564,6 +1624,13 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 	if (#option == 3) then
 		local rule = {option,conds,ids,tags}
 
+		--The glitch override is here.
+		if checkglitchrule(rule) then
+			spreadglitches(ids)
+			return
+		end
+		--Glitch override ends here. (That was fast.)
+
 		local allow_add_to_featureindex, is_pnoun_target, is_pnoun_effect, is_pnoun_rule = scan_added_feature_for_pnoun_rule(rule, visual)
 		if not allow_add_to_featureindex then
 			return
@@ -1797,8 +1864,11 @@ function code(alreadyrun_)
 		if (HACK_INFINITY < 200) then
 			local checkthese = {}
 			local wordidentifier = ""
+			local echoidentifier = ""
 			wordunits,wordidentifier,wordrelatedunits = findwordunits()
+			echounits,echoidentifier,echorelatedunits = ws_findechounits()
 			local wordunitresult = {}
+			local echounitresult = {}
 			
 			if (#wordunits > 0) then
 				for i,v in ipairs(wordunits) do
@@ -1807,6 +1877,17 @@ function code(alreadyrun_)
 						table.insert(checkthese, v[1])
 					else
 						wordunitresult[v[1]] = 0
+					end
+				end
+			end
+			
+			if (#echounits > 0) then -- Check {unitid, conditions} pairs for ECHO ?
+				for _,v in ipairs(echounits) do
+					if testcond(v[2],v[1]) then
+						echounitresult[v[1]] = 1
+						table.insert(checkthese, v[1])
+					else
+						echounitresult[v[1]] = 0
 					end
 				end
 			end
@@ -1881,8 +1962,8 @@ function code(alreadyrun_)
 							
 							--MF_alert("Doing firstwords check for " .. unit.strings[UNITNAME] .. ", dir " .. tostring(i))
 							
-							local hm = codecheck(unitid,ox,oy,i,nil,wordunitresult)
-							local hm2 = codecheck(unitid,nox,noy,forward_dir,nil,wordunitresult)
+							local hm = codecheck(unitid,ox,oy,i,nil,wordunitresult,echounitresult)
+							local hm2 = codecheck(unitid,nox,noy,forward_dir,nil,wordunitresult,echounitresult)
 							
 							if (#hm == 0) and (#hm2 > 0) then
 								--MF_alert("Added " .. unit.strings[UNITNAME] .. " to firstwords, dir " .. tostring(i))
@@ -1948,16 +2029,19 @@ function code(alreadyrun_)
 				do_subrule_pnouns()
 				subrules()
 				grouprules()
+				getallrouters()
+				getallofflines()
 				playrulesound = postrules(alreadyrun)
 				updatecode = 0
 				
 				local newwordunits,newwordidentifier,wordrelatedunits = findwordunits()
 				local stable_state_updated = update_stable_state(alreadyrun)
+				local _,newechoidentifier,echorelatedunits = ws_findechounits()
 				
 				--MF_alert("ID comparison: " .. newwordidentifier .. " - " .. wordidentifier)
 				
 				--@mods(stable) - handles the case where this run of code() caused the stablestate to update. In this case, rerun code()
-				if (newwordidentifier ~= wordidentifier) or (stable_state_updated) then
+				if (newwordidentifier ~= wordidentifier) or (newechoidentifier ~= echoidentifier) or (stable_state_updated) then
 					updatecode = 1
 					code(true)
 				else
@@ -2663,13 +2747,24 @@ function subrules()
 								table.insert(newconds, d)
 							end
 
-							for c,d in ipairs(mimic_ids) do
-								table.insert(newids, d)
+							-- TODO: this system is definetly jank and might need to be reworked
+							if #mimic_ids >= 3 then -- If we are using a normal mimic rule, the text unitids will be at least 3
+								-- To allow compatability with th_testcond_this.lua functions, insert text unit ids in this order (X = mimic rule, Y = other rule):
+								-- 		(noun of X) (verb of X) (property of X) (noun of Y) (verb of Y) (property of Y) (condition params for Y...) (condition params for X...)
+								for c,d in ipairs(mimic_ids) do
+									table.insert(newids, d)
 
-								if c == 3 then
-									for e,f in ipairs(ids) do
-										table.insert(newids, f)
-									end		
+									if c == 3 then
+										for e,f in ipairs(ids) do
+											table.insert(newids, f)
+										end		
+									end
+								end
+							else
+								-- If the mimic rule has no text unitids, then it should be either a baserule or stablerule
+								assert(#mimic_ids == 0) -- Assuming it's impossible for a rule to be formed with 1 or 2 texts
+								for e,f in ipairs(ids) do
+									table.insert(newids, f)
 								end
 							end
 							

@@ -12,7 +12,7 @@ When it comes to deciding which mods to merge, there will be several restriction
 ## Alright, serious time over! Where are the goods?!
 ### [Download the modpack in the Releases Section!](https://github.com/PlasmaFlare/baba-mega-modpack/releases)
 
-**Compatable Baba version: 477c on PC**
+**Compatable Baba version: 478f on PC**
 
 The main version currently includes these mods (author handles are from discord):
 - [Plasma's Modpack](https://github.com/PlasmaFlare/plasma-baba-mods) - By PlasmaFlare (@plasmaflare)
@@ -40,13 +40,25 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 
 # Pending mods I'm looking to merge
 
-### [Metatext Mod](https://github.com/EvanEMV/Baba-Is-You---Metatext-Mod) - By @EmilyEmmi#9099
+### [Metatext Mod](https://github.com/EvanEMV/Baba-Is-You---Metatext-Mod) - By @EmilyEmmi
+(Update 10/20/23)
+I made good progress on this, and managed to get a working version done! However, I'm also considering to merge the glyph mod in. Since both metatext mod and glyph mod have significant changes to the codebase, there are prone to bugs and conflicts between mods. My plan currently is to release a beta version of the modpack with glyph + metatext in the Baba Is You discord. Then fix any bugs that arise as best as I can before releasing it officially. **However**, if there's any issues with the merge that is too much for me to handle in the long-term, there might be a change in plans. We'll see.
+
 (Update 11/4/22)
 Looks like Hempuli hasn't posted much updates on Baba Is You. So I'm *slightly* more inclined to proceed with adding the Metatext mod. However, after some initial investigations on the merge process, it looks like merging the metatext mod might be tricker than I thought. So I'm still hesitant to officially add the metatext mod to the main branch. But I'll see what I can do.
 
 As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
 
+### Glyph Mod - By @Mathguy24
+(See most recent update under Metatext Mod)
+
 # Changelog
+- **1.3.0** (10/20/23)
+  - [PLASMA] Updated for Plasma modpack version 1.5.14 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.14))
+  - [WORD SALAD] Updated to latest version that adds ECHO, ENTER, VEHICLE, REPENT, and HOPS
+  - Added Local mod from Mathguy!
+  - Added Btd456Creeper's mods: Glitch, Offset, and Nuhuh!
+    - Also added Turning variants of Nuhuh and Offset
 - **1.2.4** (7/15/23)
   - [PLASMA] Updated for Plasma modpack version 1.5.13 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.13))
   - [VISIT] Updated to 1.2.4
