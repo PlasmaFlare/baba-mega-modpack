@@ -10,6 +10,7 @@ local load_order = {
 	"conditions.lua",
 	"convert.lua",
 	"effects.lua",
+	"letterunits.lua",
 	"load.lua",
 	"map.lua",
 	"mapcursor.lua",

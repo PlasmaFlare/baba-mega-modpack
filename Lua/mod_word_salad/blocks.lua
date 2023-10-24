@@ -4,7 +4,7 @@
 
 
 
--- OVERRIDE: add ALIVE interactions with WIN/DEFEAT/etc., add karma for destructions by overlap or BOOM, implement REPENT
+-- OVERRIDE: add ALIVE interactions with WIN/DEFEAT/etc., add karma for destructions by overlap or BOOM, implement REPENT, add special interaction for LEVEL IS ENTER
 
 --[[ @Merge: block() was merged ]]
 

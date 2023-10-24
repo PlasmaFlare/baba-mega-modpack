@@ -48,6 +48,7 @@ table.insert(mod_hook_functions["rule_baserules"],
 		addbaserule("glitch","is","safe")
 		addbaserule("glitch","is","still")
 		addbaserule("glitch","is","glitchprop")
+		addbaserule("glitch","is","block")
 	end
 )
 
@@ -94,23 +95,21 @@ end
 
 
 --Checkglitchrule: Returns true if at least one text/object making up a rule is marked as glitched.
-function checkglitchrule(rule)
-	for i,rule3 in ipairs(rule[3]) do
-		for j,textunitid in ipairs(rule3) do
-			for k,v in ipairs(glitchtable) do
+function checkglitchrule(rule3)
+	for i,textunitid in ipairs(rule3) do
+		for j,v in ipairs(glitchtable) do
 				if (v == textunitid) then
 					return true
 				end
 			end
 		end
-	end
 	return false
 end
 
 --Spreadglitches: Creates new glitch objects at the locations of the given objects, by ID.
-function spreadglitches(ids)
-	for i,rule3 in ipairs(ids) do
-		for j,spreadunitid in ipairs(rule3) do
+function spreadglitches(rule)
+	for i,word in ipairs(rule) do
+		for j,spreadunitid in ipairs(word[3]) do
 			local spreadunit = mmf.newObject(spreadunitid)
 			local x = spreadunit.values[XPOS]
 			local y = spreadunit.values[YPOS]
@@ -126,9 +125,9 @@ function spreadglitches(ids)
 	end
 end
 
---Override to addoption to put in the above code for glitches affecting rules.
+--Override to docode to put in the above code for glitches affecting rules.
 
---[[ @Merge: addoption() was merged ]]
+--[[ @Merge: docode() was merged ]]
 
 
 --If an infinite loop happens and the relevant setting is true, transform the level into a glitch object.

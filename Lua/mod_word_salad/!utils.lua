@@ -57,7 +57,7 @@ movement.lua
 
 blocks.lua
 -- moveblock(): keep karma after undoing, ECHO/BACK interaction
--- block(): add check for ALIVE, set karma for destructions by overlap or BOOM, implement REPENT
+-- block(): add check for ALIVE, set karma for destructions by overlap or BOOM, implement REPENT, add special interaction for LEVEL IS ENTER
 -- levelblock(): add check for ALIVE, set level karma for destructions unless level is REPENT
 -- findplayer(): add check for ALIVE and VESSEL
 
@@ -72,11 +72,14 @@ clears.lua
 -- clearunits(): clear ECHO stuff
 -- clear(): also clear ECHO stuff
 
+letterunits.lua
+-- formlettermap(): check for ECHO objects that are echoing letters
+
 -- ========== OVERRIDDEN FUNCTIONS ==========]]
 
 -- TODO list:
 ---- improve handling of karma units (add a map to keep track of which unitids have karma?)
-
+---- fix ECHO bugs (ECHOing letters sometimes disables parsing, cannot ECHO multiple words in the same spot at once)
 
 -- Global variable to keep track of texts overlapping a level - including the level itself if it was converted to text! (probably not the best way to handle this)
 ws_overlapping_texts = {}
@@ -385,6 +388,20 @@ end
 
 -------- ECHO FUNCTIONS --------
 
+-- Function to query the text data from the echo map, given the name of a echo unit
+function ws_getTextDataFromEchoMap(unitname)
+	local matching_texts = echomap[unitname] or {}
+	-- If the object being echo is the outer level, we also add all the texts from the outer level. hooray for meta stuff
+	if (unitname == "level") then
+		local outer_text = echomap["_outerlevel"] or {}
+		for _,outer_data in ipairs(outer_text) do
+			table.insert(matching_texts, outer_data)
+		end
+	end
+
+	return matching_texts
+end
+
 -- Function to check for changes to echo units (similar to checkwordchanges in utils.lua)
 function ws_checkechochanges(unitid)
 	if (#echounits > 0) then
@@ -613,25 +630,30 @@ function ws_findechounits()
 			-- We then get all the text objects at the same position
 			local this_x = unit.values[XPOS]
 			local this_y = unit.values[YPOS]
-			local text_ids = findtype({"text"}, this_x, this_y) -- We don't need to specify the id of this unit because it can't be text
-			for _,textid in ipairs(text_ids) do
-				local text_unit = mmf.newObject(textid)
-				-- Pair of {name, type, position}, for example {"baba", 0, 6}, {"win", 2, 11} etc.
-				-- The position is used to skip overlapping texts
-				local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], this_x + this_y*roomsizex, textid} 
-				table.insert(echomap[unit_name], text_data)
-			end
-			-- Special case for LEVEL: aside from normal ECHO, we also repeat any text at the level's position on the map (including the level itself if it was converted)
-			-- We need to check this only the first time we have LEVEL IS ECHO, since this can't be changed from within the level
-			if (unit_name == "level") then
-				if (not echomap["_outerlevel"]) then
-					echomap["_outerlevel"] = {}
-					local overlapping = ws_overlapping_texts or {} -- Should  never be nil, but let's be safe
-					for i,ovtextdata in ipairs(overlapping) do
-						if (unitreference["text_"..ovtextdata[1]] ~= nil) then -- Make sure that the text being echoed is in the level palette
-							table.insert(echomap["_outerlevel"], ovtextdata)
-						else
-							timedmessage("unitreference for " .. ovtextdata[1] .. " was nil!", 0, 2)
+
+			if (gettilenegated(this_x, this_y) == false) then
+				local text_ids = findtype({"text"}, this_x, this_y) -- We don't need to specify the id of this unit because it can't be text
+				for _,textid in ipairs(text_ids) do
+					local text_unit = mmf.newObject(textid)
+					-- Pair of {name, type, position}, for example {"baba", 0, 6}, {"win", 2, 11} etc.
+					-- The position is used to skip overlapping texts
+					local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], this_x + this_y*roomsizex, textid} 
+					table.insert(echomap[unit_name], text_data)
+				end
+				-- Special case for LEVEL: aside from normal ECHO, we also repeat any text at the level's position on the map (including the level itself if it was converted)
+				-- We need to check this only the first time we have LEVEL IS ECHO, since this can't be changed from within the level
+				if (unit_name == "level") then
+					if (not echomap["_outerlevel"]) then
+						echomap["_outerlevel"] = {}
+						if hasfeature("level","is","echo",1) then
+							local overlapping = ws_overlapping_texts or {} -- Should  never be nil, but let's be safe
+							for i,ovtextdata in ipairs(overlapping) do
+								if (unitreference["text_"..ovtextdata[1]] ~= nil) then -- Make sure that the text being echoed is in the level palette
+									table.insert(echomap["_outerlevel"], ovtextdata)
+								else
+									timedmessage("unitreference for " .. ovtextdata[1] .. " was nil!", 0, 2)
+								end
+							end
 						end
 					end
 				end

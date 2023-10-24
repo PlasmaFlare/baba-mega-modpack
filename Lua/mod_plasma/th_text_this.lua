@@ -717,7 +717,7 @@ local function simulate_raycast_with_pnoun(pnoun_unitid, raycast_settings)
                 local found_ending_these = false
                 local found_valid_ending_these = false
 
-                if pointer_noun == "these" then
+                if pointer_noun == "these" and not gettilenegated(ray_pos[1], ray_pos[2]) then
                     -- If we found another THESE pointing in the opposite direction, terminate early
                     if unitmap[tileid] ~= nil then
                         for _, ray_unitid in ipairs(unitmap[tileid]) do
@@ -924,6 +924,13 @@ local function simulate_raycast_with_pnoun(pnoun_unitid, raycast_settings)
         for tileid, _ in pairs(ray_objects_by_tileid) do
             if not found_blocked_tiles[tileid] then
                 ray_objects_by_tileid[tileid] = nil
+            end
+        end
+    else
+        for tileid, _ in pairs(ray_objects_by_tileid) do
+            local x, y = plasma_utils.coords_from_tileid(tileid)
+            if gettilenegated(x, y) then
+                ray_objects_by_tileid[tileid] = {}
             end
         end
     end

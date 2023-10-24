@@ -53,6 +53,13 @@ As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. An
 (See most recent update under Metatext Mod)
 
 # Changelog
+- **1.3.1** (10/23/23)
+  - [WORD SALAD] Fixed ECHO plainly not working
+  - Fixed erroring when selecting a level (oops bad echo merge)
+  - [BTD456CREEPER] Updated glitch mod to 1.0.1
+  - [BTD456CREEPER] Added "Glitch is BLOCK" as a baserule
+  - [WORD SALAD] Updated to 1.4, which adds interactions with "LEVEL IS ENTER" and enables ECHO compatability with letters
+  - [BTD456CREEPER x PLASMA and WORD SALAD] Support for edge cases involving nuhuh cancelling interactions involving ECHO and pointer nouns
 - **1.3.0** (10/20/23)
   - [PLASMA] Updated for Plasma modpack version 1.5.14 ([See details here](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.14))
   - [WORD SALAD] Updated to latest version that adds ECHO, ENTER, VEHICLE, REPENT, and HOPS

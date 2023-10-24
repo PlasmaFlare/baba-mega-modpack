@@ -809,23 +809,26 @@ function findfears(unitid,feartargets,x_,y_)
 	return result,resultdir,amount
 end
 
-function getlevelsurrounds(firstlevelid)
-	visit_innerlevelid = tostring(firstlevelid)
+function getlevelsurrounds(levelid)
+	local level = mmf.newObject(levelid)
+	visit_innerlevelid = tostring(levelid)
 
 	local loopindex = 1
-	local addedids = {firstlevelid}
+	local addedids = {levelid}
 	local dirids = {"r","u","l","d","dr","ur","ul","dl","o"}
+	local x,y,dir = level.values[XPOS],level.values[YPOS],level.values[DIR]
+	
 	local result = generaldata.strings[CURRLEVEL] .. ","
 
 	--This would be a for loop, but it's adding things to the table being looped through.
 	--Specifically, if the levelsurrounds contain an object with level data, the code has to
 	--get surrounds for that level too in case it gets visited.
 	while #addedids >= loopindex do
-		local levelid = addedids[loopindex]
+		local levelid_item = addedids[loopindex]
 		
-		local level = mmf.newObject(levelid)
+		local level = mmf.newObject(levelid_item)
 		result = result .. "levelseparator" .. ","
-		.. tostring(levelid) .. ","
+		.. tostring(levelid_item) .. ","
 		.. level.strings[U_LEVELFILE] .. ","
 		.. tostring(level.values[VISUALLEVEL]) .. ","
 		.. tostring(level.values[VISUALSTYLE]) .. ","
@@ -839,7 +842,7 @@ function getlevelsurrounds(firstlevelid)
 			if (unitmap[tileid] ~= nil) then
 				if (#unitmap[tileid] > 0) then
 					for a,b in ipairs(unitmap[tileid]) do
-						if (b ~= levelid) then
+						if (b ~= levelid_item) then
 							local unit = mmf.newObject(b)
 							local name = getname(unit)
 							
@@ -868,16 +871,17 @@ function getlevelsurrounds(firstlevelid)
 		end
 		
 		loopindex = loopindex + 1
+	end
 
-		-- EDIT: find all texts (including the level itself) at the level's position
-		-- NOTE: this assumes that the text being echoed is of the same type as within the level (for example if BABA is a noun in the map, it's treated as a noun inside the level as well)
-		ws_overlapping_texts = {}
-		local text_ids = findtype({"text"}, x, y)
-		for _,textid in ipairs(text_ids) do
-			local text_unit = mmf.newObject(textid)
-			local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
-			table.insert(ws_overlapping_texts, text_data)
-		end
+	-- EDIT: find all texts (including the level itself) at the level's position
+	-- NOTE: this assumes that the text being echoed is of the same type as within the level (for example if BABA is a noun in the map, it's treated as a noun inside the level as well)
+	
+	ws_overlapping_texts = {}
+	local text_ids = findtype({"text"}, x, y)
+	for _,textid in ipairs(text_ids) do
+		local text_unit = mmf.newObject(textid)
+		local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
+		table.insert(ws_overlapping_texts, text_data)
 	end
 	
 	visit_fullsurrounds = result

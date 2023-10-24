@@ -79,14 +79,7 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult
 						
 						if valid then
 							-- Get all matching text objects from the echo map
-							local matching_texts = echomap[v.strings[UNITNAME]] or {} -- Extra safety measure, it should never be empty, but who knows
-							-- If the object being echo is the outer level, we also add all the texts from the outer level. hooray for meta stuff
-							if (v.strings[UNITNAME] == "level") then
-								local outer_text = echomap["_outerlevel"] or {}
-								for _,outer_data in ipairs(outer_text) do
-									table.insert(matching_texts, outer_data)
-								end
-							end
+							local matching_texts = ws_getTextDataFromEchoMap(v.strings[UNITNAME])
 							--[[ 
 							if (matching_texts[1] ~= nil) then
 								local first_rulepair = matching_texts[1]
@@ -100,12 +93,7 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult
 							local this_tileid = this_x + this_y * roomsizex
 							-- For each remaining text, insert in the table same, but v.strings[UNITNAME] is the text name; v.values[TYPE] is the type of that text
 							for _,text_data in ipairs(matching_texts) do
-								if (text_data[3] ~= this_tileid) then
-									if text_data[4] == nil then
-										for k,v in pairs(text_data) do
-											print(k,v)
-										end
-									end
+								if (text_data[3] ~= this_tileid) and not gettilenegated(this_x, this_y) then
 									table.insert(result, {{b}, w, get_turning_text_interpretation(text_data[4]), text_data[2], cdir}) -- @Merge: handle turning text with ECHO
 								end
 							end
@@ -1348,6 +1336,12 @@ function docode(firstwords)
 									end
 								end
 								
+								--The Glitch override starts here.
+								if checkglitchrule(wid) then
+									spreadglitches(sentence)
+								end
+								--Glitch override ends here. (That was fast.)
+								
 								testing = testing .. wname .. " "
 								
 								local wcategory = -1
@@ -1623,19 +1617,11 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 	
 	if (#option == 3) then
 		local rule = {option,conds,ids,tags}
-
-		--The glitch override is here.
-		if checkglitchrule(rule) then
-			spreadglitches(ids)
-			return
-		end
-		--Glitch override ends here. (That was fast.)
-
 		local allow_add_to_featureindex, is_pnoun_target, is_pnoun_effect, is_pnoun_rule = scan_added_feature_for_pnoun_rule(rule, visual)
 		if not allow_add_to_featureindex then
 			return
 		end
-
+		
 		table.insert(features, rule)
 		local target = option[1]
 		local verb = option[2]

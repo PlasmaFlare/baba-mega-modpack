@@ -6,7 +6,7 @@ function formlettermap()
 	local lettermap = {}
 	local letterunitlist = {}
 	
-	if (#letterunits > 0) then
+	if ((#letterunits > 0) or (#echounits > 0)) then
 		for i,unitid in ipairs(letterunits) do
 			local unit = mmf.newObject(unitid)
 			
@@ -26,6 +26,25 @@ function formlettermap()
                     
                     table.insert(lettermap[tileid], {name, unitid})
                 end
+			end
+		end
+		
+		-- Possibly add letters from ECHO stuff
+		for i,unitid in ipairs(echounits) do
+			local unit = mmf.newObject(unitid[1])
+			local matching_texts = ws_getTextDataFromEchoMap(unit.strings[UNITNAME])
+			-- Get all text objects on the same tile and remove them (to prevent repeated texts)
+			local x,y = unit.values[XPOS], unit.values[YPOS]
+			local tileid = x + y * roomsizex
+			-- Add letters from other tiles
+			for _,text_data in ipairs(matching_texts) do
+				if ((text_data[3] ~= tileid) and (text_data[2] == 5)) then
+					if (lettermap[tileid] == nil) then
+						lettermap[tileid] = {}
+					end
+				
+					table.insert(lettermap[tileid], {text_data[1], unitid[1]})
+				end
 			end
 		end
 		

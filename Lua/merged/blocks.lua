@@ -622,7 +622,7 @@ function block(small_)
 	arrow_prop_mod_globals.group_arrow_properties = true
 
 	
-	-- EDIT: implement REPENT (cleanse the karma status of sinful objects)
+	-- EDIT: Implement REPENT (cleanse the karma status of sinful objects)
 	local isrepent = getunitswitheffect("repent",false,delthese)
 	for id,unit in ipairs(isrepent) do
 		if unit.karma then
@@ -633,7 +633,8 @@ function block(small_)
 		end
 	end
 	
-	local iskarma = getunitswitheffect("karma",false,delthese) -- EDIT: Destroy units by KARMA
+	-- EDIT: Destroy units by KARMA
+	local iskarma = getunitswitheffect("karma",false,delthese) 
 	for id,unit in ipairs(iskarma) do
 		if unit.karma and (issafe(unit.fixed) == false) then
 			local x,y = unit.values[XPOS],unit.values[YPOS]
@@ -643,6 +644,49 @@ function block(small_)
 			removalsound = 1
 			generaldata.values[SHAKE] = 4
 			table.insert(delthese, unit.fixed)
+		end
+	end
+	
+	-- EDIT: Implement LEVEL IS ENTER (disabled in the editor)
+	-- LEVEL IS ENTER will attempt to enter the first opened inner level it finds
+	-- Code *HEAVILY* based on the VISIT mod by btd456creeper
+	if (editor.values[E_INEDITOR] == 0) then
+		local isenter = getunitswitheffect("enter",false,delthese)
+		local enterablelevels = {}
+		for _,unit in ipairs(isenter) do
+			if (unit.strings[UNITNAME] == "level") then
+				-- Check if the level is open and points to a valid level
+				if (string.len(unit.strings[U_LEVELFILE]) > 0) and (string.len(unit.strings[U_LEVELNAME]) > 0) and (generaldata.values[IGNORE] == 0) and (unit.values[COMPLETED] > 1) then
+					table.insert(enterablelevels, unit)
+				end
+			end
+		end
+		if (#enterablelevels > 1) then -- DESTROY!! the level if trying to enter more than one level at once (something about tearing the fabric of reality i guess)
+			destroylevel()
+			destroylevel_do()
+		else
+			for _,unit in ipairs(enterablelevels) do
+				-- I have no idea what's going on in here tbh, it works though?
+				levelfile = unit.strings[U_LEVELFILE]
+				levelnum = unit.values[VISUALLEVEL]
+				leveltype = unit.values[VISUALSTYLE]
+
+				getlevelsurrounds(unit.fixed) -- Update the level surrounds (hopefully this doesn't break the game)
+				sublevel(levelfile,tonumber(levelnum),tonumber(leveltype))
+	
+				----> These next six lines are just to switch the level while displaying the proper effects.
+				----> I don't know what most of these lines do, they're taken from an example Hempuli posted once.
+				----> (from: btd456creeper)
+				-- I also have no idea what these do
+				generaldata.values[TRANSITIONREASON] = 9
+				generaldata.values[IGNORE] = 1
+				generaldata3.values[STOPTRANSITION] = 1
+				generaldata2.values[UNLOCK] = 0
+				generaldata2.values[UNLOCKTIMER] = 0
+				MF_loop("transition",1)
+				
+				break
+			end
 		end
 	end
 	
