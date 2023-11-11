@@ -67,7 +67,7 @@ function doglitchmarks()
 	for i,glitchid in ipairs(findall({"glitch"})) do
 		local glitch = mmf.newObject(glitchid)
 		for j,goner in ipairs(findallhere(glitch.values[XPOS],glitch.values[YPOS])) do
-			if (goner ~= glitch.fixed and (INFLOOP_LEVEL_GLITCH == false or mmf.newObject(goner).strings[UNITNAME] ~= "cursor")) then
+			if (goner ~= glitch.fixed and (INFLOOP_LEVEL_GLITCH == false or not hasfeature(getname(mmf.newObject(goner)),"is","select",goner))) then
 				table.insert(glitchtable, goner)
 			end
 		end

@@ -880,10 +880,32 @@ function getlevelsurrounds(levelid)
 	local text_ids = findtype({"text"}, x, y)
 	for _,textid in ipairs(text_ids) do
 		local text_unit = mmf.newObject(textid)
-		local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
-		table.insert(ws_overlapping_texts, text_data)
+
+		--[[ 
+			@Merge(Word Salad x Plasma): A few changes, mainly to account for the fact that when calling levelsurrounds(), you're often moving to a different level, meaning that unitids will not be consistent
+			- use get_turning_text_interpretation() to account for turning text
+			- if object overlapping an ECHO level is a pointer noun, get all of the things that the pointer noun refers to and process each of them independently
+		 ]]
+		if is_name_text_this(text_unit.strings[NAME]) then
+			for ray_object in pairs(get_raycast_objects(textid)) do
+				local unitid = plasma_utils.parse_object(ray_object)
+				if unitid == 2 then
+					local text_data = {"empty", 0, -1} -- If a pointer texxt is pointing to an empty tile, explicitly put in "empty" for the list of echoed texts
+					table.insert(ws_overlapping_texts, text_data)
+				else
+					table.insert(text_ids, unitid)
+				end
+			end
+		else
+			local text_data = {get_turning_text_interpretation(textid), text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
+			table.insert(ws_overlapping_texts, text_data)
+		end
+
 	end
 	
+	-- EDIT: keep the "sinful" status of a level upon entering
+	ws_wasLevelSinful = level.karma
+
 	visit_fullsurrounds = result
 end
 

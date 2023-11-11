@@ -671,6 +671,8 @@ function block(small_)
 				levelnum = unit.values[VISUALLEVEL]
 				leveltype = unit.values[VISUALSTYLE]
 
+				findpersists() -- @Merge(Word Salad x Persist): support for persisting objects via LEVEL IS ENTER
+
 				getlevelsurrounds(unit.fixed) -- Update the level surrounds (hopefully this doesn't break the game)
 				sublevel(levelfile,tonumber(levelnum),tonumber(leveltype))
 	

@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.3.1"
+local mega_modpack_version = "1.3.2"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
@@ -88,6 +88,13 @@ local mod_setting_data = {
                 default = 1,
                 buttonfunc = "ws_hopParticles",
                 tooltip = "If true, objects that are HOP will spawn some particles after a successful jump"
+            },
+            keep_level_karma = {
+                name = "keep_level_karma",
+                display = "Keep level karma",
+                default = 1,
+                buttonfunc = "ws_keepLevelKarma",
+                tooltip = "If true, keeps the sinful status of a level upon entering"
             },
         },
         settings_order = {"music_when_only_vessels", "do_hop_particles"}

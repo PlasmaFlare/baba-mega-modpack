@@ -201,7 +201,7 @@ function handle_text_cutting(data, cut_direction)
                             local obspush = hasfeature(obsname,"is","push",b,x+ox,y+oy)
                             local obspull = hasfeature(obsname,"is","pull",b,x+ox,y+oy)
                             
-                            if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) or (obsname == name) then
+                            if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
                                 valid = false
                                 break
                             end

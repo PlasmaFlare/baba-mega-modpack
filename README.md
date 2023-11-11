@@ -53,6 +53,18 @@ As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. An
 (See most recent update under Metatext Mod)
 
 # Changelog
+- **1.3.2** (11/10/23)
+  - [Persist x Word Salad] Support keeping PERSIST objects when entering a level with LEVEL IS ENTER.
+  - [Word Salad x Plasma] Fixed error from moving a pointer noun on an ECHO object.
+  - [Word Salad] Fixed KARMA/SINFUL status acting inconsistently after undoing a destruction.
+  - [Word Salad] Fixed error from edge case involving LEVEL IS ECHO meta mechanic
+  - [BTD456CREEPER] Update Glitch mod to 1.0.2
+  - [Word Salad] Forgot to add "Word Salad" tag to ECHO
+  - [Patashu] Added more tags for each added object.
+  - [Btdcreeper] Offset mod 1.1 update
+    - "Level Is Offset" now visually moves the outerlevel
+    - Fixed a niche bug where the interaction with Locked/Still would be handled incorrectly in some cases
+  - [Plasma] Update to 1.5.15
 - **1.3.1** (10/23/23)
   - [WORD SALAD] Fixed ECHO plainly not working
   - Fixed erroring when selecting a level (oops bad echo merge)

@@ -36,7 +36,6 @@ GLOBAL_disable_stablerule_update = false
 GLOBAL_checking_stable = false -- set to true whenever we are finding "X is stable" rules. This is to indirectly tell testcond()
 
 function clear_stable_mod()
-    print("clear_stable_mod")
     MF_letterclear("stablerules")
 
     stablestate:reset()

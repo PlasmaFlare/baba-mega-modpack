@@ -94,7 +94,16 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult
 							-- For each remaining text, insert in the table same, but v.strings[UNITNAME] is the text name; v.values[TYPE] is the type of that text
 							for _,text_data in ipairs(matching_texts) do
 								if (text_data[3] ~= this_tileid) and not gettilenegated(this_x, this_y) then
-									table.insert(result, {{b}, w, get_turning_text_interpretation(text_data[4]), text_data[2], cdir}) -- @Merge: handle turning text with ECHO
+									local unitidtable = {b}
+									local text_name = nil
+									if text_data.echotext_unitid == nil then
+										-- @Merge(Word Salad x Plasma): in cases where the unit overlapping unit isn't present, just use the provided name. This can happen when ENTERing a level with LEVEL IS ECHO with a text on the level itself
+										text_name = text_data[1]
+									else
+										text_name = get_turning_text_interpretation(text_data.echotext_unitid)
+										unitidtable.echotext = text_data.echotext_unitid --@Merge(Word Salad x Plasma): store extra data on unitid of the text being used through echo. (See other comment that uses unitidtable.echotext for why we're doing this)
+									end
+									table.insert(result, {unitidtable, w, text_name, text_data[2], cdir}) -- @Merge: handle turning text with ECHO
 								end
 							end
 						end
@@ -244,19 +253,28 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 						local br_unitid = v[1][1]
 						local br_unit = mmf.newObject(br_unitid)
 						br_and_text_with_split_parsing[br_unitid] = nil
+					end
 
-						if name_is_branching_text(text_name, true, false) then
-							table.insert(sents[step], v)
-							maxw = math.max(maxw, v[2])
+					local add_to_sents = true
+					if name_is_branching_text(text_name, false, true) then
+						--[[ 
+							@mod(Omni text) - prevent pivot text specifically from being added to sents since we want parsing to stop in the current direction
+							and start parsing in the perp direction (which is handled by submitting a branch for br_process_branches()). We do it this way instead
+							of changing direction of parsing overall since we want to account for stacked texts. If pivot_is and some other normal text
+						 ]]
+						add_to_sents = false
+					end
 
-							if (v[2] > 1) then
-								currw = math.max(currw, v[2] + 1)
-							end
-						end	
-					else
-						--@mod(Omni text) - these lines in this block were originally outside the current ifelse block. I originally programmed this
-						-- so that these lines don't apply to pivot text. @TODO: Reinvestigate why this is the case and if we need to keep it that way.
-						-- (3/6/22)
+					if add_to_sents then
+						--@Merge(Word Salad x Plasma): Echotext represents the unitid of the text on an ECHO object that gets used to form this sentence. Insert into
+						-- sents a word entry that contains the echotext unitid instead of the ECHO unit. This is so that get_target_unitid_from_rule() and get_property_unitid_from_rule()
+						-- from th_testcond_this.lua can properly work with ECHO.
+						if v[1].echotext ~= nil then
+							v = plasma_utils.deep_copy_table(v)
+							v[1][1] = v[1].echotext
+							v[1].echotext = nil
+						end
+
 						table.insert(sents[step], v)
 						maxw = math.max(maxw, v[2])
 
@@ -294,7 +312,7 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 						if #words ~= br_text_count then
 							totalvariants = totalvariants * (#words - br_text_count)
 						end
-						variantshere[step] = #words
+						variantshere[step] = #words - br_text_count
 						combo[step] = 1
 					
 						if (totalvariants >= limiter) then
@@ -303,7 +321,7 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 							return nil
 						end
 						
-						if (#words > 1) then
+						if (#words - br_text_count > 1) then
 							combospots[#combospots + 1] = step
 						end
 						

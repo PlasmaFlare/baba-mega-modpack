@@ -463,6 +463,10 @@ function undo()
 					local unit = mmf.newObject(getunitid(line[2]))
 					unit.xoffset = line[3]
 					unit.yoffset = line[4] --Second and final override for Offset ends here.
+				elseif (style == "leveloffset") then
+					offset_levelxoffset = line[2]
+					offset_levelyoffset = line[3]
+					MF_setroomoffset(line[4],line[5]) --Second and final override for Offset ends here.
                 elseif (style == "stable") then
                     handle_stable_undo(line)
 				elseif (style == "levelkarma") then -- Level karma got updated

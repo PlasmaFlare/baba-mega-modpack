@@ -6,7 +6,7 @@ tools.lua
 -- delunit(): update ECHO
 -- create(): update ECHO
 -- update(): update ECHO
--- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted)
+-- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted) + keep track of level sinful status
 
 undo.lua
 -- undo(): add "levelkarma" and "unitkarma" events, keep karma when undoing destruction/conversion. Add code checks when something related to ECHO is undone
@@ -83,12 +83,24 @@ letterunits.lua
 
 -- Global variable to keep track of texts overlapping a level - including the level itself if it was converted to text! (probably not the best way to handle this)
 ws_overlapping_texts = {}
+-- Global variable to keep track of whether the entered level was sinful
+ws_wasLevelSinful = false
 
-
--- Reset the karma of the outer level
+-- Set the initial karma value of the outer level
 table.insert(mod_hook_functions["level_start"],
     function()
-        levelKarma = false
+		if (editor.values[E_INEDITOR] == 0 and WS_KEEP_LEVEL_KARMA) then -- We probably don't want to keep the karma status when entering a level from the editor
+			levelKarma = ws_wasLevelSinful 
+		else
+			levelKarma = false
+		end
+	end
+)
+
+-- Clear the "Was level sinful" value when ending a level (we can't do that in the level start hook, because it's also called when restarting!)
+table.insert(mod_hook_functions["level_end"],
+    function()
+		ws_wasLevelSinful = false
 	end
 )
 
@@ -637,7 +649,8 @@ function ws_findechounits()
 					local text_unit = mmf.newObject(textid)
 					-- Pair of {name, type, position}, for example {"baba", 0, 6}, {"win", 2, 11} etc.
 					-- The position is used to skip overlapping texts
-					local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], this_x + this_y*roomsizex, textid} 
+					local text_data = {text_unit.strings[NAME], text_unit.values[TYPE], this_x + this_y*roomsizex} 
+					text_data.echotext_unitid = textid --@Merge(Word Salad x Plasma) Store the text id of the text unit overlapping the ECHO unit. This is used in codecheck() to allow support for turning text and pointer nouns
 					table.insert(echomap[unit_name], text_data)
 				end
 				-- Special case for LEVEL: aside from normal ECHO, we also repeat any text at the level's position on the map (including the level itself if it was converted)

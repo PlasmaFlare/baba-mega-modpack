@@ -19,6 +19,7 @@
 
 
 -- OVERRIDE: keep track of any text at the level position (including the level itself if it was converted) - This probably doesn't work with levels within levels
+-- Also keep track of whether the level was sinful when entering
 
 --[[ @Merge: getlevelsurrounds() was merged ]]
 

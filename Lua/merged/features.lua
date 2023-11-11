@@ -216,7 +216,7 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 								if #conds > 0 and not (#conds == 1 and (conds[1][1] == "this" or conds[1][1] == "not this")) then
 									is_nontrivial_check = true
 								end
-								if testcond(conds,unitid,x,y,nil,nil,checkedconds) then
+								if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
 									return true
 								end
 							end
