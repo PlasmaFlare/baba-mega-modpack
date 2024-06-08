@@ -504,7 +504,7 @@ if keys.IS_WORD_GLOSSARY_PRESENT then
 	name = "sidekick",
 	author = "Patashu",
     group = "Pata Redux Mods",
-	description = [[When a "SIDEKICK" object has a different object move sideways to it, the "SIDEWICK" object move along with the moving object.
+	description = [[When a "SIDEKICK" object has a different object move sideways to it, the "SIDEKICK" object move along with the moving object.
 
 - The "SIDEKICK" object acts like stop when being pushed against it.]]
 },

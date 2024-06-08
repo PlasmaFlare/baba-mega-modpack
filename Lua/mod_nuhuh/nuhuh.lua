@@ -69,6 +69,9 @@ editor_objlist["text_turning_nuhuh"] =
 
 formatobjlist()
 
+local DirTextDisplay = PlasmaModules.load_module("general/directional_text_display")
+DirTextDisplay:register_directional_text("turning_nuhuh")
+
 -- @Merge: Word Glossary Mod support
 if keys.IS_WORD_GLOSSARY_PRESENT then
     keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )

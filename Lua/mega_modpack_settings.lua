@@ -111,7 +111,7 @@ local mod_setting_data = {
                 tooltip = "If true, ECHO units can echo WORD units"
             },
         },
-        settings_order = {"music_when_only_vessels", "do_hop_particles", "keep_level_karma", "can_enter_any", "can_enter_any"}
+        settings_order = {"music_when_only_vessels", "do_hop_particles", "keep_level_karma", "can_enter_any", "echo_word_units"}
     },
     btd456creeper = {
         key = "btd456creeper_settings",
