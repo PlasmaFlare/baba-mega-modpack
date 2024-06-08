@@ -69,6 +69,27 @@ editor_objlist["text_turning_nuhuh"] =
 
 formatobjlist()
 
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+    keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
+    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+        {
+            name = "nuhuh",
+			thumbnail_obj = "text_nuhuhright",
+			author = "Btd456creeper",
+			display_sprites = {"text_nuhuhright", "text_nuhuhup", "text_nuhuhleft", "text_nuhuhdown", "text_turning_nuhuh"},
+			description = 
+[[Disables texts from being used in a rule.
+
+- The texts that nuhuh targets are 1 tile in the direction of the arrow, relative to the position of nuhuh.
+
+- Not used in normal parsing.
+
+- Includes turning text variant]],
+        }
+    })
+end
+
 --New function to check if a Nuh Uh! text is negating a given space on the grid
 function gettilenegated(x,y,infloopcount_)
     infloopcount = infloopcount_ or 0

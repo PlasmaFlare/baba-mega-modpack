@@ -1226,7 +1226,7 @@ function docode(firstwords)
 									if prev_word then
 										local word_name = parse_branching_text(prev_word[1])
 										print("test: "..word_name)
-										if word_name ~= "is" and word_name ~= "and" then
+										if word_name ~= "is" and word_name ~= "and" and word_name ~= "not" then
 											remove = true
 										end
 									end
@@ -1562,6 +1562,8 @@ function docode(firstwords)
 										ids = copytable(ids, group_target[1][3])
 										ids = copytable(ids, target[3])
 										
+										pf_rule_metadata_index:register_rule(rule, group_object[3], group_target[1][3], target[3])
+										
 										for g,h in ipairs(extraids) do
 											ids = copytable(ids, h[3])
 										end
@@ -1645,6 +1647,20 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 		local verb = option[2]
 		local effect = option[3]
 
+		-- EDIT: EXTREMELY HORRIBLE HACKY WAY TO IMPLEMENT AMBIENT
+		if (target == "ambient") then
+			target = ws_ambientObject
+			option[1] = ws_ambientObject
+		elseif (target == "not ambient") then
+			target = "not "..ws_ambientObject
+		end
+		
+		if (effect == "ambient") then
+			effect = ws_ambientObject
+			option[3] = ws_ambientObject
+		elseif (effect == "not ambient") then
+			effect = "not "..ws_ambientObject
+		end
 	
 		if (featureindex[effect] == nil) then
 			featureindex[effect] = {}
@@ -1902,6 +1918,8 @@ function code(alreadyrun_)
 			visualfeatures = {}
 			notfeatures = {}
 			groupfeatures = {}
+			
+			pf_rule_metadata_index:reset()
 			
 			local firstwords = {}
 			local alreadyused = {}

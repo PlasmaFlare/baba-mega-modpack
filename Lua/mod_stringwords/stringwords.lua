@@ -62,6 +62,46 @@ editor_objlist["text_ends"] =
 
 formatobjlist()
 
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+    keys.WORD_GLOSSARY_FUNCS.register_author("Wrecking Games", {3,4} )
+	keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+{
+	name = "starts",
+    author = "Wrecking Games",
+    group = "Stringwords",
+    description =
+[[True if the first letter of the target's name is the provided letter. 
+
+Ex: "All starts B is blue" makes baba blue.
+
+If the target is "level", the condition checks the level's name for the provided letter.]],
+},
+{
+	name = "contain",
+    author = "Wrecking Games",
+    group = "Stringwords",
+    description = 
+[[True if any of the letters in the target's name is the provided letter.
+
+Ex: "All contain a is green" makes flag green.
+
+If the target is "level", the condition checks the level's name for the provided letter.]],
+},
+{
+	name = "ends",
+    author = "Wrecking Games",
+    group = "Stringwords",
+    description = 
+[[True if the last letter of the target's name is the provided letter.
+
+Ex: "All ends E is yellow" makes keke blue.
+    
+If the target is "level", the condition checks the level's name for the provided letter.]],
+},
+	})
+end
+
 
 condlist.starts = function(params,_,_,cdata)
 	local unitid = cdata.unitid

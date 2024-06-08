@@ -10,6 +10,7 @@ local load_order = {
 	"features.lua",
 	"fl_filler_text.lua",
 	"gd_guard.lua",
+	"glossary.lua",
 	"mapcursor.lua",
 	"movement.lua",
 	"rules.lua",

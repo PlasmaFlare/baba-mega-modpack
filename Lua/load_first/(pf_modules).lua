@@ -6,6 +6,7 @@ local module_load_order = {
     "general/gui",
     "general/undo_analyzer",
     "general/directional_text_display",
+    "general/rule_metadata",
     "cutpack/word_verify",
     "this/pnoun_group_defs",
     "this/pnoun_raycast_trace",
@@ -34,6 +35,7 @@ end
 print("[Plasma Modpack] Finished loading all modules")
 plasma_utils = PlasmaModules.load_module("general/utils")
 pf_raycast_bank = PlasmaModules.load_module("this/raycast_bank")
+pf_rule_metadata_index = PlasmaModules.load_module("general/rule_metadata")
 
 --[[ 
     This module system is a start. But it is still a bit flawed if I want to maintain robustness in the long term. I don't know if that is going to be a goal

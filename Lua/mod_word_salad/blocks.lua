@@ -10,7 +10,7 @@
 
 
 
--- OVERRIDE: implement LEVEL IS ALIVE and LEVEL IS KARMA, add karma to level, implement LEVEL IS REPENT
+-- OVERRIDE: implement LEVEL IS ALIVE and LEVEL IS KARMA, add karma to level, implement LEVEL IS REPENT, prevent winning level is LEVEL IS ENTER is formed
 
 --[[ @Merge: levelblock() was merged ]]
 

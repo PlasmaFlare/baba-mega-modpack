@@ -6,7 +6,8 @@ tools.lua
 -- delunit(): update ECHO
 -- create(): update ECHO
 -- update(): update ECHO
--- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted) + keep track of level sinful status
+-- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted) + keep track of level sinful status and alignment
+-- writerules(): replace instances of "AMBIENT" with "AMBIENT (OBJECT)" in pause menu rules (currently unused because of the hacky ambient implementation), allow prefixes to have custom visual names
 
 undo.lua
 -- undo(): add "levelkarma" and "unitkarma" events, keep karma when undoing destruction/conversion. Add code checks when something related to ECHO is undone
@@ -50,7 +51,7 @@ mapcursor.lua
 -- mapcursor_setonlevel(): ENTER
 
 movement.lua
--- movecommand(): add checks for VESSEL and VESSEL2, set karma when a weak object moves into an obstacle unless the obstacle is REPENT, implement HOP/HOPS for direct movements
+-- movecommand(): add checks for VESSEL and VESSEL2, set karma when a weak object moves into an obstacle unless the obstacle is REPENT, implement HOP/HOPS for direct movements, implement BOOST/BOOSTS
 -- move(): add karma for OPEN/SHUT and EAT unless the sinner is REPENT
 -- trypush(): add HOP/HOPS for pushable objects
 -- dopush(): add karma for when a WEAK object is pushed into an obstacle unless it's REPENT, add HOP/HOPS for pushable objects
@@ -67,6 +68,7 @@ update.lua
 rules.lua
 -- code(): look for ECHO units?
 -- codecheck(): add rules from ECHO objects (?)
+-- addoption(): implement AMBIENT (hacky af)
 
 clears.lua
 -- clearunits(): clear ECHO stuff
@@ -80,11 +82,11 @@ letterunits.lua
 -- TODO list:
 ---- improve handling of karma units (add a map to keep track of which unitids have karma?)
 ---- fix ECHO bugs (ECHOing letters sometimes disables parsing, cannot ECHO multiple words in the same spot at once)
+---- make AMBIENT less jank
 
--- Global variable to keep track of texts overlapping a level - including the level itself if it was converted to text! (probably not the best way to handle this)
-ws_overlapping_texts = {}
--- Global variable to keep track of whether the entered level was sinful
-ws_wasLevelSinful = false
+-- Change the name of ALIGNEDX and ALIGNEDY in the rule list
+word_names["alignedx"] = "x-aligned"
+word_names["alignedy"] = "y-aligned"
 
 -- Set the initial karma value of the outer level
 table.insert(mod_hook_functions["level_start"],
@@ -101,9 +103,11 @@ table.insert(mod_hook_functions["level_start"],
 table.insert(mod_hook_functions["level_end"],
     function()
 		ws_wasLevelSinful = false
+		ws_levelAlignedRow=false
+		ws_levelAlignedColumn=false
+		ws_ambientObject = "level"
 	end
 )
-
 
 -------- VESSEL/ALIVE FUNCTIONS --------
 
@@ -371,8 +375,12 @@ end
 
 -- Function to check if a unit *could* hop if it bumped into an obstacle: that is, if the unit is HOP, or if it HOPS any unit in the next tile
 function ws_couldHop(unitid,x,y,ox,oy)
-	local unit = mmf.newObject(unitid)
-	local name = getname(unit)
+	local name = ""
+	if (unitid ~= 2) then
+		name = getname(mmf.newObject(unitid))
+	else
+		name = "empty"
+	end
 	-- First, check if the unit is HOP
 	if hasfeature(name,"is","hop",unitid,x,y) then return true end
 	-- Then, we check if it HOPS anything in the next tile
@@ -454,7 +462,7 @@ function ws_findechounits()
 		for i,v in ipairs(featureindex["echo"]) do -- For all rules that contain ECHO
 									-- Example for KEKE ON BABA AND NOT NEAR ME IS ECHO
 			local rule = v[1]		-- The basic rule: {"keke", "is", "echo"}
-			local conds = v[2]		-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}
+			local conds = v[2]		-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}
 			local ids = v[3]		-- Unit ids of the text pieces: {{unitid of "keke"}, {unitid of "is"}, {unitid of "echo"}...}
 			
 			local name = rule[1]	-- The object in the rule being ECHO ("keke", "not baba" etc.)
@@ -523,7 +531,7 @@ function ws_findechounits()
 						end
 					end
 				else
-					MF_alert("No ids listed in Echo-related rule! rules.lua line 1302 - this needs fixing asap (related to grouprules line 1118)")
+					MF_alert("No ids listed in Echo-related rule! rules.lua line 1302 - this needs fixing asap (related to grouprules line 1118)") -- um, this was clearly copied from the WORD code
 				end
 			end
 		end
@@ -630,9 +638,8 @@ function ws_findechounits()
 	-- local all_echo_unitids = findallfeature(nil, "is", "echo", true)
 	local all_echo_units = getunitswitheffect("echo")
 	-- For each echo object
-	for ind,unit in ipairs(all_echo_units) do
+	for _,unit in ipairs(all_echo_units) do
 		local unit_name = getname(unit)
-		-- timedmessage("Found echo unit: " .. unit_name, 0, 2 + ind) -- DEBUG
 		-- Skip text objects
 		if (unit_name ~= "text") then
 			 -- We use the unit name as the key, but it might be the first time it has to be added to the echo map
@@ -645,6 +652,19 @@ function ws_findechounits()
 
 			if (gettilenegated(this_x, this_y) == false) then
 				local text_ids = findtype({"text"}, this_x, this_y) -- We don't need to specify the id of this unit because it can't be text
+			
+				-- EXPERIMENT: support echoing word units
+				if (WS_CAN_ECHO_WORD_UNITS) then
+					for _,words in ipairs(wordunits) do -- The echomap is always filled after the word map, so this should work??
+						if (words[1] ~= unit.fixed) then -- If a unit is both ECHO and WORD at the same time, it can't add itself to the echo map
+							local word_unit = mmf.newObject(words[1])
+							if (word_unit.values[XPOS] == this_x) and (word_unit.values[YPOS] == this_y) then
+								table.insert(echomap[unit_name], {word_unit.strings[NAME], 0, this_x + this_y*roomsizex}) -- WORD objects are always nouns
+							end
+						end
+					end
+				end
+			
 				for _,textid in ipairs(text_ids) do
 					local text_unit = mmf.newObject(textid)
 					-- Pair of {name, type, position}, for example {"baba", 0, 6}, {"win", 2, 11} etc.

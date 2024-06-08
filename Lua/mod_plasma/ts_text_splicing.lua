@@ -185,6 +185,8 @@ function handle_text_cutting(data, cut_direction)
             outstr = outstr:reverse()
         end
 
+        arrow_prop_mod_globals.group_arrow_properties = false
+
         for c in outstr:gmatch"." do
             local obs = findobstacle(x+ox,y-oy)
             local valid = true
@@ -200,6 +202,8 @@ function handle_text_cutting(data, cut_direction)
                             local obsstop = hasfeature(obsname,"is","stop",b,x+ox,y+oy)
                             local obspush = hasfeature(obsname,"is","push",b,x+ox,y+oy)
                             local obspull = hasfeature(obsname,"is","pull",b,x+ox,y+oy)
+
+                            obsstop, obspush, obspull = do_directional_collision(cut_direction, obsname, b, obsstop, obspush, obspull, x, y, ox, oy, false)
                             
                             if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
                                 valid = false
@@ -212,6 +216,8 @@ function handle_text_cutting(data, cut_direction)
                 local obsstop = hasfeature("empty","is","stop",2,x+ox,y+oy)
                 local obspush = hasfeature("empty","is","push",2,x+ox,y+oy)
                 local obspull = hasfeature("empty","is","pull",2,x+ox,y+oy)
+
+                obsstop, obspush, obspull = do_directional_collision(cut_direction, "empty", b, obsstop, obspush, obspull, x, y, ox, oy, false)
                 
                 if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
                     valid = false
@@ -229,6 +235,8 @@ function handle_text_cutting(data, cut_direction)
                 break
             end
         end
+
+        arrow_prop_mod_globals.group_arrow_properties = true
 
         local cutterunit_name = ""
         if data.cutterunitid == 1 then

@@ -145,7 +145,29 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 
 					local cause = v[1]
 					
-					if (v[1] ~= "level") or ((v[1] == "level") and testcond(v[2],1)) then
+					-- EDIT: Spawn particles around the level edge if the special rule is "leveledge"
+					if (specialrule == "leveledge") and (v[1] == "level") and testcond(v[2],1) then
+						for i=0,roomsizex-1 do
+							if (chance > 0) then
+								if (math.random(chance*2) == 1) then
+									partid = MF_particle(particle,i,0,c1,c2,layer)
+								end
+								if (math.random(chance*2) == 1) then
+									partid = MF_particle(particle,i,roomsizey-1,c1,c2,layer)
+								end
+							end
+						end
+						for j=1,roomsizey-2 do
+							if (chance > 0) then
+								if (math.random(chance*2) == 1) then
+									partid = MF_particle(particle,0,j,c1,c2,layer)
+								end
+								if (math.random(chance*2) == 1) then
+									partid = MF_particle(particle,roomsizex-1,j,c1,c2,layer)
+								end
+							end
+						end
+					elseif (v[1] ~= "level") or ((v[1] == "level") and testcond(v[2],1)) then
 						for i=1,roomsizex-2 do
 							for j=1,roomsizey-2 do
 								local tileid = i + j * roomsizex

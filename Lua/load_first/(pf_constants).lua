@@ -1,4 +1,4 @@
-plasma_modpack_version = "1.5.15"
+plasma_modpack_version = "1.5.16"
 
 br_prefix = "branching_"
 br_prefix_len = string.len(br_prefix)
@@ -22,8 +22,6 @@ arrow_properties = {
 	shift=true,
 	select=true,
 	boom=true,
-    offset=true, --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
-    nuhuh=true,
 }
 
 turning_word_names = {
@@ -42,8 +40,6 @@ turning_word_names = {
     select=true,
     boom=true,
     beside=true,
-    offset=true, --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
-    nuhuh=true,
 }
 
 branching_text_names = {
@@ -108,10 +104,6 @@ arrow_property_display = {
 	boomup="boom (up)",
 	boomleft="boom (left)",
 	boomdown="boom (down)",
-	offsetright="offset (right)", --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
-	offsetup="offset (up)",
-	offsetleft="offset (left)",
-	offsetdown="offset (down)",
 }
 
 baba_font_consts = {

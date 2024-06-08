@@ -444,12 +444,20 @@ function moveblock(onlystartblock_)
 				end
 			end
 		end
-	end
 	
 	if enable_directional_shift then
 		--@Turning Text(shift)
 		do_directional_shift_moveblock()
 	else
+			--[[
+				@Note from plasma: as weird as this may sound, I think that the entirety of this shift code below is redundant in vanilla.
+				The code to handle updating directions of shifted objects is already handled in movecommand() with this code snippet:
+					if (state == 0) and (data.reason == "shift") and (data.unitid ~= 2) then
+						updatedir(data.unitid, data.dir)
+						dir = data.dir
+					end 
+				As such, I decided to not bother with removing calling do_directional_shift_moveblock() if enable_directional_shift == true
+			]]
 		for a,unitid in ipairs(isshift) do
 			if (unitid ~= 2) and (unitid ~= 1) then
 				local unit = mmf.newObject(unitid)
@@ -485,6 +493,7 @@ function moveblock(onlystartblock_)
 		end
 		
 		doupdate()
+	end
 	end
 end
 
@@ -545,15 +554,16 @@ function block(small_)
 		
 		local ismore = getunitswitheffect("more",false,delthese)
 		--@Turning Text(more)
-		do_directional_more(ismore, delthese)
+		ismore = do_directional_more(ismore, delthese)
 
-		for id,unit in ipairs(ismore) do
+		--@plasma(more): changed format of "ismore" to be unit -> list of directions to duplicate unit from MORE
+		for unit,dirs in pairs(ismore) do
 			local x,y = unit.values[XPOS],unit.values[YPOS]
 			local unitid = unit.fixed
 			local name = unit.strings[UNITNAME]
 			local doblocks = {}
 			
-			for i=1,4 do
+			for _, i in ipairs(dirs) do
 				local drs = ndirs[i]
 				ox = drs[1]
 				oy = drs[2]
@@ -605,7 +615,7 @@ function block(small_)
 						obspull = nil
 					end
 
-					obsstop, obspush, obspull = do_directional_collision(i-1, obsname, 2, obsstop, obspush, obspull, x,y,ox,oy, false)
+					obsstop, obspush, obspull = do_directional_collision(i-1, "empty", 2, obsstop, obspush, obspull, x,y,ox,oy, false)
 					
 					if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
 						valid = false
@@ -654,7 +664,7 @@ function block(small_)
 		local isenter = getunitswitheffect("enter",false,delthese)
 		local enterablelevels = {}
 		for _,unit in ipairs(isenter) do
-			if (unit.strings[UNITNAME] == "level") then
+			if (WS_CAN_ENTER_ANY or (unit.strings[UNITNAME] == "level")) then
 				-- Check if the level is open and points to a valid level
 				if (string.len(unit.strings[U_LEVELFILE]) > 0) and (string.len(unit.strings[U_LEVELNAME]) > 0) and (generaldata.values[IGNORE] == 0) and (unit.values[COMPLETED] > 1) then
 					table.insert(enterablelevels, unit)
@@ -1960,27 +1970,36 @@ function levelblock()
 										destroylevel()
 										return
 									end
+								end
 							elseif (rule[2] == "melts") and (rule[3] == "level") and (lsafe == false) then
 								if testcond(conds,2,i,j) and floating_level(2,i,j) then
 									local pmult,sound = checkeffecthistory("hot")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							elseif (rule[2] == "opens") and (rule[3] == "level") and (lsafe == false) then
 								if testcond(conds,2,i,j) and floating_level(2,i,j) then
 									local pmult,sound = checkeffecthistory("unlock")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							elseif (rule[2] == "defeats") and (rule[3] == "level") and (lsafe == false) and ((hasfeature("level","is","you",1,i,j) ~= nil) or (hasfeature("level","is","you2",1,i,j) ~= nil) or (hasfeature("level","is","3d",1,i,j) ~= nil)) then
 								if testcond(conds,2,i,j) and floating_level(2,i,j) then
 									local pmult,sound = checkeffecthistory("defeat")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
-								end
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							end
 						end
@@ -2221,7 +2240,8 @@ function levelblock()
 									end
 									
 									if destroyedSomething and not lrepent then -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
-										if lkarma and (lsafe == false) then
+										local is_guarded = ack_endangered_unit(level_obj)
+										if lkarma and (lsafe == false) and not is_guarded then
 											destroylevel()
 											return
 										else
@@ -2284,8 +2304,11 @@ function levelblock()
 					if (rule[3] == "level" and lsafe == false) then
 						local pmult,sound = checkeffecthistory("hot")
 						setsoundname("removal",1,sound)
-						destroylevel()
-						return
+						local is_guarded = ack_endangered_unit(level_obj)
+						if not is_guarded then
+							destroylevel()
+							return
+						end
 					else
 						local eaten = {}
 						local target = rule[3]
@@ -2340,8 +2363,11 @@ function levelblock()
 					if (rule[3] == "level" and lsafe == false) then
 						local pmult,sound = checkeffecthistory("unlock")
 						setsoundname("removal",1,sound)
-						destroylevel()
-						return
+						local is_guarded = ack_endangered_unit(level_obj)
+						if not is_guarded then
+							destroylevel()
+							return
+						end
 					else
 						local eaten = {}
 						local target = rule[3]
@@ -2364,8 +2390,11 @@ function levelblock()
 										if lsafe == false then
 											local pmult,sound = checkeffecthistory("unlock")
 											setsoundname("removal",1,sound)
-											destroylevel()
-											return
+											local is_guarded = ack_endangered_unit(level_obj)
+											if not is_guarded then
+												destroylevel()
+												return
+											end
 										end
 									end
 								end
@@ -2385,8 +2414,11 @@ function levelblock()
 								if lsafe == false then
 									local pmult,sound = checkeffecthistory("unlock")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							end
 						end
@@ -2408,8 +2440,11 @@ function levelblock()
 					if rule[3] == "level" and lsafe == false and (hasfeature("level","is","you",1) ~= nil or hasfeature("level","is","you2",1) ~= nil or hasfeature("level","is","3d",1) ~= nil) then
 						local pmult,sound = checkeffecthistory("defeat")
 						setsoundname("removal",1,sound)
-						destroylevel()
-						return
+						local is_guarded = ack_endangered_unit(level_obj)
+						if not is_guarded then
+							destroylevel()
+							return
+						end
 					else
 						local eaten = {}
 						local target = rule[3]
@@ -2486,8 +2521,11 @@ function levelblock()
 									if lsafe == false then
 										local pmult,sound = checkeffecthistory("sink")
 										setsoundname("removal",1,sound)
-										destroylevel()
-										return
+										local is_guarded = ack_endangered_unit(level_obj)
+										if not is_guarded then
+											destroylevel()
+											return
+										end
 									end
 								end
 							end
@@ -2523,8 +2561,12 @@ function levelblock()
 								for a,unitid in ipairs(unitlists[d]) do
 									local pmult,sound = checkeffecthistory("hot")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
+
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							end
 						end
@@ -2534,7 +2576,11 @@ function levelblock()
 						for a,b in ipairs(empties) do
 							local pmult,sound = checkeffecthistory("hot")
 							setsoundname("removal",1,sound)
-							destroylevel()
+
+							local is_guarded = ack_endangered_unit(level_obj)
+							if not is_guarded then
+								destroylevel()
+							end
 						end
 					end
 				end
@@ -2560,8 +2606,11 @@ function levelblock()
 									if lsafe == false then
 										local pmult,sound = checkeffecthistory("unlock")
 										setsoundname("removal",1,sound)
-										destroylevel()
-										return
+										local is_guarded = ack_endangered_unit(level_obj)
+										if not is_guarded then
+											destroylevel()
+											return
+										end
 									end
 								end
 							end
@@ -2581,8 +2630,11 @@ function levelblock()
 							if lsafe == false then
 								local pmult,sound = checkeffecthistory("unlock")
 								setsoundname("removal",1,sound)
-								destroylevel()
-								return
+								local is_guarded = ack_endangered_unit(level_obj)
+								if not is_guarded then
+									destroylevel()
+									return
+								end
 							end
 						end
 					end
@@ -2616,8 +2668,11 @@ function levelblock()
 								for a,unitid in ipairs(unitlists[d]) do
 									local pmult,sound = checkeffecthistory("defeat")
 									setsoundname("removal",1,sound)
-									destroylevel()
-									return
+									local is_guarded = ack_endangered_unit(level_obj)
+									if not is_guarded then
+										destroylevel()
+										return
+									end
 								end
 							end
 						end
@@ -2627,7 +2682,10 @@ function levelblock()
 						for a,b in ipairs(empties) do
 							local pmult,sound = checkeffecthistory("defeat")
 							setsoundname("removal",1,sound)
-							destroylevel()
+							local is_guarded = ack_endangered_unit(level_obj)
+							if not is_guarded then
+								destroylevel()
+							end
 						end
 					end
 				end
@@ -2653,8 +2711,11 @@ function levelblock()
 									if lsafe == false then
 										local pmult,sound = checkeffecthistory("sink")
 										setsoundname("removal",1,sound)
-										destroylevel()
-										return
+										local is_guarded = ack_endangered_unit(level_obj)
+										if not is_guarded then
+											destroylevel()
+											return
+										end
 									end
 								end
 							end
@@ -2799,7 +2860,8 @@ function levelblock()
 									end
 										
 									if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
-										if lkarma and (lsafe == false) then
+										local is_guarded = ack_endangered_unit(level_obj)
+										if lkarma and (lsafe == false) and not is_guarded then
 											destroylevel()
 											return
 										else
@@ -2879,7 +2941,8 @@ function levelblock()
 										end
 										
 										if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
-											if lkarma and (lsafe == false) then
+											local is_guarded = ack_endangered_unit(level_obj)
+											if lkarma and (lsafe == false) and not is_guarded then
 												destroylevel()
 												return
 											else

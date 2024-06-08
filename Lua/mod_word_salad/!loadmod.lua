@@ -3,6 +3,7 @@ local dir = str:match("(.*/)")
 
 local load_order = {
     "!add_words.lua",
+	"!global_vars.lua",
 	"!settings.lua",
 	"!utils.lua",
 	"blocks.lua",

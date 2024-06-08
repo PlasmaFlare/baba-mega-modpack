@@ -30,6 +30,21 @@ editor_objlist["text_past"] = {
 
 formatobjlist()
 
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+  keys.WORD_GLOSSARY_FUNCS.register_author("EmilyEmmi", {3,1} )
+  keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+      {
+          name = "past",
+          author = "EmilyEmmi",
+          description =
+[[When a "PAST" rule is made, a replay of the player's inputs will start. During the replay, rules made using "PAST" will be applied on every turn, potentially changing the current present to a different outcome.
+
+Rules using "NOT PAST" will be disabled during a past replay.]],
+      }
+  })
+end
+
 --[[ Adds the rules for the past condition, it is true if we are running the past rules
 This allows Not Past to function ]]--
 condlist["past"] = function(params,checkedconds,checkedconds_,cdata)

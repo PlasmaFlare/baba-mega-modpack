@@ -325,3 +325,18 @@ editor_objlist["text_persist"] =
 	colour = {0, 1},
 	colour_active = {0, 3},
 }
+
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+    keys.WORD_GLOSSARY_FUNCS.register_author("Randomizer", {0,3} )
+    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+        {
+            name = "persist",
+            author = "Randomizer",
+            description =
+[[When switching from one level to another, objects that are "PERSIST" will also move to the next level, retaining their position and state from the previous level.
+        
+- If an object PERSISTs onto a level that doesn't have the object in its palette, the "PERSIST" object shows as an error instead.]]
+        }
+    })
+end

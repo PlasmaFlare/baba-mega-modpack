@@ -119,39 +119,6 @@ function parse_this_param_and_get_raycast_infix_units(this_param, infix)
     return raycast_objects, found_letterwords
 end
 
-local function get_singlular_unitid_from_rule(idgroup, include_letters)
-    if include_letters then
-        if #idgroup > 1 then -- If this is true, then the word from by ids[1] is actually formed by letters
-            return idgroup
-        else
-            return idgroup[1]
-        end
-    else
-        if #idgroup > 1 then
-            return nil
-        else
-            return idgroup[1]
-        end
-    end
-end
-
-local function get_singular_name_from_rule(idgroup, include_letters)
-    local unitid = get_singlular_unitid_from_rule(idgroup, include_letters)
-    if unitid == nil then
-        return nil, nil
-    elseif type(unitid) == "table" then
-        local s = {}
-        for _, letter_unitid in ipairs(unitid) do
-            local unit = mmf.newObject(letter_unitid)
-            table.insert(s, unit.strings[NAME])
-        end
-        return table.concat(s), unitid, true
-    else
-        local unit = mmf.newObject(unitid)
-        return unit.strings[NAME], unitid, false
-    end
-end
-
 --[[ 
     This gets the unitid of the target/noun text that is stored in the rule.
     If the target word is formed by letters:
@@ -163,10 +130,9 @@ function get_target_unitid_from_rule(rule, include_letters)
     if has_stable_tag(tags) then --@mods(stable)
         return nil
     end
-    
-    local ids = rule[3]
-
-    return get_singlular_unitid_from_rule(ids[1])
+    local rule_metadata = pf_rule_metadata_index:get_rule_metadata(rule[1])
+    if rule_metadata == nil then return nil end
+    return rule_metadata.target_unitid[1]
 end
 
 --[[ 
@@ -180,47 +146,10 @@ function get_property_unitid_from_rule(rule, include_letters)
     if has_stable_tag(tags) then
         return nil
     end
-    
-    local ids = rule[3]
 
-    local check_second_rule = false
-
-    local name, unitid = nil, nil
-    local check_name = nil
-
-    name, unitid = get_singular_name_from_rule(ids[3], include_letters)
-    check_name = get_singular_name_from_rule(ids[2], include_letters)
-    if ids[6] ~= nil then
-        if string.sub(name,1,5) == "group" and check_name == "is" then
-            check_second_rule = true
-        else
-            if check_name == "mimic" then
-                for _, tag in ipairs(tags) do
-                    if tag == "mimic" then
-                        check_second_rule = true
-                        break
-                    end
-                end
-            end
-        end
-    end
-
-    if check_second_rule then
-        local i = 6
-        name, unitid = get_singular_name_from_rule(ids[i], include_letters)
-        check_name = get_singular_name_from_rule(ids[i-1], include_letters)
-        while string.sub(name,1,5) == "group" and check_name == "is" do
-            i = i + 3
-            if ids[i] == nil then
-                break
-            end
-
-            name, unitid = get_singular_name_from_rule(ids[i], include_letters)
-            check_name = get_singular_name_from_rule(ids[i-1], include_letters)
-        end
-    end
-
-    return unitid, name
+    local rule_metadata = pf_rule_metadata_index:get_rule_metadata(rule[1])
+    if rule_metadata == nil then return nil end
+    return rule_metadata.property_unitid[1]
 end
 
 

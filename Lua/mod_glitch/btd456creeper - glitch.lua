@@ -39,6 +39,25 @@ editor_objlist["glitch"] =
 }
 formatobjlist()
 
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+    keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
+    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+        {
+            name = "glitch",
+			thumbnail_obj = "glitch",
+			author = "Btd456creeper",
+			description = 
+[[An anomaly.
+- Objects that overlap a glitch instantly get destroyed.
+
+- Texts near a glitch that form a rule turn into more glitches.
+
+- Glitches cannot be manipulated by rules.]],
+        }
+    })
+end
+
 --Color-changing effect for the glitch object, as well as making it unmovable and indestructible.
 table.insert(mod_hook_functions["rule_baserules"],
 	function()

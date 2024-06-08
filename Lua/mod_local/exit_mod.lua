@@ -174,6 +174,47 @@ editor_objlist["text_local3"] =
 
 
 formatobjlist()
+
+-- @Merge: Word Glossary Mod support
+if keys.IS_WORD_GLOSSARY_PRESENT then
+    keys.WORD_GLOSSARY_FUNCS.register_author("Mathguy", {1,3} )
+    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+        {
+			name = "local",
+			author = "Mathguy",
+			display_sprites = {"text_local", "text_local1", "text_local2", "text_local3"},
+			description =
+[[True if the object is within the 5x5 square area centered around a "ROUTER" or "CHANNEL X" object.
+
+"LOCAL X" is true only if the object is within the range of a "ROUTER" object or a "CHANNEL X" object.]],
+		},
+		{
+			name = "router",
+			author = "Mathguy",
+			description =
+[[Creates a 5x5 square area centered around the "ROUTER" object where other objects can be considered "LOCAL" across all channels.
+
+The "ROUTER" object itself will not be considered "LOCAL" to itself. Only to other router objects.]],
+		},
+		{
+			name = "channel",
+			thumbnail_obj = "text_channel1",
+			author = "Mathguy",
+			display_sprites = {"text_channel1", "text_channel2", "text_channel3"},
+			description = [[Creates a 5x5 square area centered around the "CHANNEL X" object where other objects can be considered both "LOCAL" and "LOCAL X".]],
+		},
+		{
+			name = "offline",
+			author = "Mathguy",
+			display_sprites = {"text_offline", "text_offline1", "text_offline2", "text_offline3"},
+			description =
+[[Prevents the object from being considered "LOCAL" across all channels.
+	
+If an object is "OFFLINE X", then the object specifically cannot be "LOCAL X".]],
+		},
+    })
+end
+
 condlist['local'] = function(params, checkedconds,checkedconds_, cdata)
 	getallrouters()
 	getallofflines()

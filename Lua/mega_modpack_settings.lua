@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.3.2"
+local mega_modpack_version = "1.3.3"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
 
@@ -96,8 +96,22 @@ local mod_setting_data = {
                 buttonfunc = "ws_keepLevelKarma",
                 tooltip = "If true, keeps the sinful status of a level upon entering"
             },
+            can_enter_any = {
+                name = "can_enter_any",
+                display = "Can Enter Any",
+                default = 1,
+                buttonfunc = "ws_canEnterAny",
+                tooltip = "If true, LEVEL IS ENTER behavior also applies to any X IS ENTER if X has valid level data"
+            },
+            echo_word_units = {
+                name = "echo_word_units",
+                display = "Echo Word Units",
+                default = 1,
+                buttonfunc = "ws_echoWordUnits",
+                tooltip = "If true, ECHO units can echo WORD units"
+            },
         },
-        settings_order = {"music_when_only_vessels", "do_hop_particles"}
+        settings_order = {"music_when_only_vessels", "do_hop_particles", "keep_level_karma", "can_enter_any", "can_enter_any"}
     },
     btd456creeper = {
         key = "btd456creeper_settings",

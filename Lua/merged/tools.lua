@@ -26,7 +26,20 @@ function writerules(parent,name,x_,y_)
 		local rule = rules[1]
 		
 		if (#custom == 0) then
-			text = text .. rule[1] .. " "
+			-- EDIT: implement AMBIENT
+			local target = rule[1]
+			local target_ = target
+			local isnot = string.sub(target, 1, 4)
+			if (isnot == "not ") then
+				target_ = string.sub(target, 5)
+			else
+				isnot = ""
+			end
+			if (target_ == "ambient") then -- EDIT: implement AMBIENT
+				text = text .. isnot .. target_ .. " (" .. ws_ambientObject .. ") "
+			else
+				text = text .. target .. " "
+			end
 		else
 			text = text .. custom .. " "
 		end
@@ -117,6 +130,8 @@ function writerules(parent,name,x_,y_)
 										
 										if (word_names[target_] ~= nil) then
 											target = isnot .. word_names[target_]
+										elseif (target_ == "ambient") then -- EDIT: implement AMBIENT
+											target = isnot .. target_ .. " (" .. ws_ambientObject .. ")"
 										end
 										
 										text = text .. target .. " "
@@ -136,7 +151,22 @@ function writerules(parent,name,x_,y_)
 						end
 					else
 						if (#custom == 0) then
-							text = cond[1] .. " " .. text
+							-- EDIT: allow prefixes to have different visual names in the properties
+							local target = cond[1]
+							local isnot = string.sub(target, 1, 4)
+							local target_ = target
+							
+							if (isnot == "not ") then
+								target_ = string.sub(target, 5)
+							else
+								isnot = ""
+							end
+							
+							if (word_names[target_] ~= nil) then
+								target = isnot .. word_names[target_]
+							end
+							
+							text = target .. " " .. text
 						else
 							text = custom .. " " .. text
 						end
@@ -156,6 +186,8 @@ function writerules(parent,name,x_,y_)
 			
 			if (word_names[target_] ~= nil) then
 				target = isnot .. word_names[target_]
+			elseif (target_ == "ambient") then -- EDIT: implement AMBIENT
+				target = isnot .. target_ .. " (" .. ws_ambientObject .. ")"
 			end
 			
 			if (#custom == 0) then
@@ -900,11 +932,41 @@ function getlevelsurrounds(levelid)
 			local text_data = {get_turning_text_interpretation(textid), text_unit.values[TYPE], -1} -- The position is set to -1, so that any level obj inside the level can echo the text regardless of their position
 			table.insert(ws_overlapping_texts, text_data)
 		end
+		-- EXPERIMENT: Allow echoing WORD units as well
+		if (WS_CAN_ECHO_WORD_UNITS) then
+			for _,words in ipairs(wordunits) do -- Hopefully this also works?
+				-- NOTE: For consistency with how LEVEL IS ECHO handles outer text, we allow a level to echo itself if it's also WORD
+				local word_unit = mmf.newObject(words[1])
+				if (word_unit.values[XPOS] == x) and (word_unit.values[YPOS] == y) then
+					table.insert(ws_overlapping_texts, {word_unit.strings[NAME], 0, -1}) -- WORD objects are always nouns, and like above the position is set to -1
+				end
+			end
+		end
+	
 
 	end
 	
 	-- EDIT: keep the "sinful" status of a level upon entering
 	ws_wasLevelSinful = level.karma
+	-- EDIT: keep track of what object the current level is for AMBIENT (ideally this should be stored somewhere)
+	ws_ambientObject = getname(level)
+	-- EDIT: check if the level is aligned
+	local columnFail, rowFail = false, false -- columnFail = object in different column, rowFail = object in different row
+	for _,u in pairs(unitlists[ws_ambientObject]) do
+		local unit = mmf.newObject(u)
+		local ux, uy = unit.values[XPOS], unit.values[YPOS]
+		if (ux ~= x) then -- Other level in a different column
+			columnFail = true
+		end
+		if (uy ~= y) then -- Other level in a different row
+			rowFail = true
+		end
+		if columnFail and rowFail then -- No need to keep checking
+			break
+		end
+	end
+	ws_levelAlignedRow = not rowFail
+	ws_levelAlignedColumn = not columnFail
 
 	visit_fullsurrounds = result
 end

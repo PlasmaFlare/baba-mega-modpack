@@ -38,21 +38,15 @@ Feel free to submit an issue to this Github repository to report bugs.
 
 If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can also report bugs in [#mega-modpack-bugs](https://discord.com/channels/556333985882439680/971375736713773076), which is a thread of #asset-is-make. You can also report bugs in #asset-is-make, but I recommend the first channel just to avoid spamming the other channels.
 
-# Pending mods I'm looking to merge
-
-### [Metatext Mod](https://github.com/EvanEMV/Baba-Is-You---Metatext-Mod) - By @EmilyEmmi
-(Update 10/20/23)
-I made good progress on this, and managed to get a working version done! However, I'm also considering to merge the glyph mod in. Since both metatext mod and glyph mod have significant changes to the codebase, there are prone to bugs and conflicts between mods. My plan currently is to release a beta version of the modpack with glyph + metatext in the Baba Is You discord. Then fix any bugs that arise as best as I can before releasing it officially. **However**, if there's any issues with the merge that is too much for me to handle in the long-term, there might be a change in plans. We'll see.
-
-(Update 11/4/22)
-Looks like Hempuli hasn't posted much updates on Baba Is You. So I'm *slightly* more inclined to proceed with adding the Metatext mod. However, after some initial investigations on the merge process, it looks like merging the metatext mod might be tricker than I thought. So I'm still hesitant to officially add the metatext mod to the main branch. But I'll see what I can do.
-
-As of 5/1/22, Hempuli expressed thoughts of implementing metatext officially. And he even worked on an initial prototype last Baba stream. It is unknown if he will follow through with this, since I suspect there might be a lot of refactoring involved. If Hempuli doesn't follow through, then I'll add the mod as normal. Otherwise, I'll have to see how the metatext mod responds after Hempuli implements metatext officially.
-
-### Glyph Mod - By @Mathguy24
-(See most recent update under Metatext Mod)
 
 # Changelog
+- **1.3.3** (6/7/24)
+  - Made compatible with the [word glossary mod!](https://github.com/PlasmaFlare/baba-word-glossary)
+  - [Word Salad] Updated to 1.6.1. This includes BOOST, ALIGNED, and AMBIENT as newly added words!
+  - [Patashu] TOPPLE is now considered deprecated due to inconsistent behavior. For legacy reasons, you'll still be able to use it in a level. But there wont be any more future fixes related to TOPPLE from now on.
+  - [Plasma] Update to 1.5.16. [See Changelog](https://github.com/PlasmaFlare/plasma-baba-mods/releases/tag/1.5.16)
+  - [Plasma x Patashu] Fixed interactions with GUARD and MELTS/OPENS/DEFEATS not working
+  - [Patashu x Btdcreeper and Word Salad] Fixed NOUNDO objects giving error while dealing with offset and karma undos
 - **1.3.2** (11/10/23)
   - [Persist x Word Salad] Support keeping PERSIST objects when entering a level with LEVEL IS ENTER.
   - [Word Salad x Plasma] Fixed error from moving a pointer noun on an ECHO object.

@@ -27,75 +27,29 @@ function do_directional_more(full_more_units, delthese_)
     end
 
     local full_more_units_dict = {}
-	for id,unit in ipairs(full_more_units) do
+	
+	local more_unit_dirs = {}
+	if full_more_units ~= nil then
+    	for _, unit in ipairs(full_more_units) do
 		full_more_units_dict[unit.fixed] = true
+			more_unit_dirs[unit] = {1,2,3,4}
+		end
 	end
 
-	local partial_more_units = {}
 	for i=1,4 do
 		local dirfeature = dirfeaturemap[i]
 		local more_units = getunitswitheffect("more"..dirfeature,false,delthese)
 		for j,unit in ipairs(more_units) do
 			if not full_more_units_dict[unit.fixed] then
-				if not partial_more_units[unit] then
-					partial_more_units[unit] = {}
+				if not more_unit_dirs[unit] then
+					more_unit_dirs[unit] = {}
 				end
-				table.insert(partial_more_units[unit], i)
+				table.insert(more_unit_dirs[unit], i)
 			end
 		end
 	end
 
-	for unit,dirs in pairs(partial_more_units) do
-		local x,y = unit.values[XPOS],unit.values[YPOS]
-		local name = getname(unit)
-		local doblocks = {}
-		
-        for ind, i in ipairs(dirs) do
-			local drs = ndirs[i]
-			ox = drs[1]
-			oy = drs[2]
-			
-			local valid = true
-			local obs = findobstacle(x+ox,y+oy)
-			local tileid = (x+ox) + (y+oy) * roomsizex
-			
-			if (#obs > 0) then
-				for a,b in ipairs(obs) do
-					if (b == -1) then
-						valid = false
-					elseif (b ~= 0) and (b ~= -1) then
-						local bunit = mmf.newObject(b)
-						local obsname = getname(bunit)
-						
-						local obsstop = hasfeature(obsname,"is","stop",b,x+ox,y+oy)
-						local obspush = hasfeature(obsname,"is","push",b,x+ox,y+oy)
-                        local obspull = hasfeature(obsname,"is","pull",b,x+ox,y+oy)
-                        
-                        obsstop, obspush, obspull = do_directional_collision(i-1, obsname, b, obsstop, obspush, obspull, x,y,ox,oy, false, nil)
-						
-						if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) or (obsname == name) then
-							valid = false
-							break
-						end
-					end
-				end
-			else
-				local obsstop = hasfeature("empty","is","stop",2,x+ox,y+oy)
-				local obspush = hasfeature("empty","is","push",2,x+ox,y+oy)
-                local obspull = hasfeature("empty","is","pull",2,x+ox,y+oy)
-                
-                obsstop, obspush, obspull = do_directional_collision(i-1, obsname, 2, obsstop, obspush, obspull, x,y,ox,oy, false, nil)
-				
-				if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
-					valid = false
-				end
-			end
-			
-			if valid then
-				local newunit = copy(unit.fixed,x+ox,y+oy)
-			end
-		end
-	end
+	return more_unit_dirs
 end
 
 function do_directional_collision(dir, name, unitid, isstop, ispush, ispull, x, y, ox, oy, pulling, reason)
@@ -279,220 +233,6 @@ function do_directional_select(dir_)
 		return {}
 	else
 		return getunitswitheffect("select"..dirfeature,true)
-	end
-end
-
-function do_directional_shift_parsing(moving_units, been_seen, roomsizex)
-	local shifts_to_apply = {}
-	arrow_prop_mod_globals.group_arrow_properties = false
-	local shifts = findallfeature(nil,"is","shift",true)
-
-	for i,v in ipairs(shifts) do
-		if (v ~= 2) then
-			local unit = mmf.newObject(v)
-			
-			local x,y = unit.values[XPOS],unit.values[YPOS]
-			local tileid = x + y * roomsizex
-			
-			if (unitmap[tileid] ~= nil) then
-				if (#unitmap[tileid] > 1) then
-					for a,b in ipairs(unitmap[tileid]) do
-						if (b ~= v) and floating(b,v,x,y) then
-						
-							if (isstill_or_locked(b,x,y,unit.values[DIR]) == false) then
-								table.insert(shifts_to_apply, {unitid = b, reason = "shift", state = 0, moves = 1, dir = unit.values[DIR], xpos = x, ypos = y})
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	for dir=0,3 do
-		local dirfeature = dirfeaturemap[dir+1]
-		local dirshifts = findallfeature(nil, "is", "shift"..dirfeature, true)
-		for i,v in ipairs(dirshifts) do
-			if (v ~= 2) then
-				local unit = mmf.newObject(v)
-				
-				local x,y = unit.values[XPOS],unit.values[YPOS]
-				local tileid = x + y * roomsizex
-				
-				if (unitmap[tileid] ~= nil) then
-					if (#unitmap[tileid] > 1) then
-						for a,b in ipairs(unitmap[tileid]) do
-							if (b ~= v) and floating(b,v,x,y) then
-							
-								if (isstill_or_locked(b,x,y,dir) == false) then
-									table.insert(shifts_to_apply, {unitid = b, reason = "shift", state = 0, moves = 1, dir = dir, xpos = x, ypos = y})
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	arrow_prop_mod_globals.group_arrow_properties = true
-
-	-- @mod(patashu) - consider patashu's words that have to do with shift logic here
-	local isshifts = getunitswithverb("shifts")
-				
-	for id,ugroup in ipairs(isshifts) do
-		local v = ugroup[1]
-		
-		if (ugroup[3] ~= "empty") then
-			for a,unit in ipairs(ugroup[2]) do
-				local x,y = unit.values[XPOS],unit.values[YPOS]
-				local things = findtype({v,nil},x,y,unit.fixed)
-				
-				if (#things > 0) then
-					for a,b in ipairs(things) do
-						if floating(b,unit.fixed,x,y) and (b ~= unit.fixed) then
-							
-							if (isstill_or_locked(b,x,y,unit.values[DIR]) == false) then
-								table.insert(shifts_to_apply, {unitid = b, reason = "shift", state = 0, moves = 1, dir = unit.values[DIR], xpos = x, ypos = y})
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	
-	local isyeet = getunitswithverb("yeet")
-	
-	for id,ugroup in ipairs(isyeet) do
-		local v = ugroup[1]
-		
-		if (ugroup[3] ~= "empty") then
-			for a,unit in ipairs(ugroup[2]) do
-				local x,y = unit.values[XPOS],unit.values[YPOS]
-				local things = findtype({v,nil},x,y,unit.fixed)
-				
-				if (#things > 0) then
-					for a,b in ipairs(things) do
-						if floating(b,unit.fixed,x,y) and (b ~= unit.fixed) then
-							if (isstill_or_locked(b,x,y,unit.values[DIR]) == false) then
-								table.insert(shifts_to_apply, {unitid = b, reason = "yeet", state = 0, moves = 99, dir = unit.values[DIR], xpos = x, ypos = y})
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	for i, shiftapply in ipairs(shifts_to_apply) do
-		b = shiftapply.unitid
-		shiftdir = shiftapply.dir
-		if (been_seen[b] == nil) then
-			print(shiftapply.moves)
-			local moving_unit_data = {
-				unitid = b, 
-				reason = shiftapply.reason, 
-				state = shiftapply.state, 
-				moves = shiftapply.moves, 
-				dir = shiftdir, 
-				xpos = x, 
-				ypos = y,
-	
-				horsdir = -1,
-				vertdir = -1,
-				horsmove = 0,
-				vertmove = 0,
-				dirshiftstate = 0
-			}
-			update_net_shift_data(shiftdir, moving_unit_data, shiftapply.moves)
-	
-			table.insert(moving_units, moving_unit_data)
-			been_seen[b] = #moving_units
-		else
-			local id = been_seen[b]
-			local data = moving_units[id]
-
-			update_net_shift_data(shiftdir, data, shiftapply.moves)
-		end
-	end
-end
-
-function do_directional_shift_level_parsing(moving_units, been_seen, mapdir)
-	local shifts_to_apply = {}
-	arrow_prop_mod_globals.group_arrow_properties = false
-	local levelshift = findfeature("level","is","shift")
-	local leveldir = mapdir
-	
-	if levelshift ~= nil then
-		for i,feature in ipairs(levelshift) do
-			local leveldir = mapdir
-						
-			if testcond(feature[2],1) then
-				for a,unit in ipairs(units) do
-					local x,y = unit.values[XPOS],unit.values[YPOS]
-					
-					if floating_level(unit.fixed) then
-						if (isstill_or_locked(unit.fixed,x,y,leveldir) == false) and (issleep(unit.fixed,x,y) == false) then
-							table.insert(shifts_to_apply, {unit.fixed, leveldir})
-						end
-					end
-				end
-			end
-		end
-	end
-
-	for dir=0,3 do
-		local dirfeature = dirfeaturemap[dir+1]
-		local dirshifts = findfeature("level", "is", "shift"..dirfeature)
-		if dirshifts ~= nil then
-			for i,feature in ipairs(dirshifts) do
-				if testcond(feature[2],1) then
-					for a,unit in ipairs(units) do
-						local x,y = unit.values[XPOS],unit.values[YPOS]
-						
-						if floating_level(unit.fixed) then
-							if (isstill_or_locked(unit.fixed,x,y,dir) == false) and (issleep(unit.fixed,x,y) == false) then
-								table.insert(shifts_to_apply, {unit.fixed, dir})
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	arrow_prop_mod_globals.group_arrow_properties = true
-
-	for i, shiftapply in ipairs(shifts_to_apply) do
-		b = shiftapply[1]
-		shiftdir = shiftapply[2]
-		if (been_seen[b] == nil) then
-			local moving_unit_data = {
-				unitid = b, 
-				reason = "shift", 
-				state = 0, 
-				moves = 1, 
-				dir = shiftdir, 
-				xpos = x, 
-				ypos = y,
-	
-				horsdir = -1,
-				vertdir = -1,
-				horsmove = 0,
-				vertmove = 0,
-				dirshiftstate = 0
-			}
-			update_net_shift_data(shiftdir, moving_unit_data, 1)
-	
-			table.insert(moving_units, moving_unit_data)
-			been_seen[b] = #moving_units
-		else
-			local id = been_seen[b]
-			local data = moving_units[id]
-
-			update_net_shift_data(shiftdir, data, 1)
-		end
 	end
 end
 
@@ -688,8 +428,20 @@ function do_directional_shift_update_shift_state(data, updatemovecount)
 	end
 end
 
-function update_net_shift_data(dir, data, value_)
-	local value = value_ or 1
+function update_net_shift_data(dir, data, value)
+	if not enable_directional_shift then
+		return
+	end
+
+	value = value or 1
+	if data.dirshiftstate == nil then
+		data.horsdir = -1
+		data.vertdir = -1
+		data.horsmove = 0
+		data.vertmove = 0
+		data.dirshiftstate = 0
+	end
+
 	if dir == 0 then
 		data.horsmove = data.horsmove + value
 	elseif dir == 1 then

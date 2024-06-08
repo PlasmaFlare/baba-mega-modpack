@@ -29,10 +29,7 @@ function undo()
 						local unitid = getunitid(line[9])
 						
 						local unit = mmf.newObject(unitid) --paradox-proofing
-						local unitname = nil
-						if (unit ~= nil) then
-							local unitname = getname(unit)
-						end
+
 						if unit ~= nil and not unit_ignores_undos(unitid) then
 							local oldx,oldy = unit.values[XPOS],unit.values[YPOS]
 							local x,y,dir = line[3],line[4],line[5]
@@ -216,7 +213,7 @@ function undo()
 								end
 							end
 							
-							--If the unit was actually a destroyed 'NOUNDO', oops. Don't actually bring it back. It's dead, Jim.
+							--If the unit was actually a destroyed 'NOUNDO', oops. Don't actually bring it back. It's dead, Jim. @Merge(note)
 							if (not convert and unit_ignores_undos(unitid)) then
 								unit = {}
 								delunit(unitid)
@@ -461,8 +458,19 @@ function undo()
 					end
 				elseif (style == "offset") then --Second and final override for Offset starts here.
 					local unit = mmf.newObject(getunitid(line[2]))
-					unit.xoffset = line[3]
-					unit.yoffset = line[4] --Second and final override for Offset ends here.
+
+					--[[ 
+						@Merge: IMPORTANT. Need this check of "unit ~= nil" for all undo styles to handle cases with NOUNDO.
+						
+						If a NOUNDO object undos from a "delete" styled-undo, the object actually gets removed immediately after being created. 
+						(Look for the code that has the comment "@Merge(note)").
+						This causes a "paradox" (not in reference to the actual table called "paradax") where the other undo entries assume that the NOUNDO object will exist.
+						To guard against this case, patashu's modpack adds these checks for every undo style. It's tedious, but I guess its how things are done.
+					 ]]
+					if (unit ~= nil) then --paradox-proofing
+						unit.xoffset = line[3]
+						unit.yoffset = line[4] --Second and final override for Offset ends here.
+					end
 				elseif (style == "leveloffset") then
 					offset_levelxoffset = line[2]
 					offset_levelyoffset = line[3]
@@ -477,7 +485,9 @@ function undo()
 					local unit = mmf.newObject(unitid)
 					local previous_karma = line[3] or false
 					
-					unit.karma = previous_karma
+					if (unit ~= nil) then --paradox-proofing
+						unit.karma = previous_karma
+					end
                 end
 			end
 		end

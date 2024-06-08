@@ -97,14 +97,16 @@ end
 
 local function get_valid_characters()
     local valid_chars = {}
-    for i, v in pairs(editor_currobjlist) do
-        local type = getactualdata_objlist(v.object, "type")
-        local unittype = getactualdata_objlist(v.object, "unittype")
+    for text_name, object in pairs(objectpalette) do
+        local type = getactualdata_objlist(object, "type")
+        local unittype = getactualdata_objlist(object, "unittype")
         
         if type == 5 and unittype == "text" then
-            if string.sub(v.name, 1, 5) == "text_" then
-                local character = string.sub(v.name, 6)
-                valid_chars[character] = true
+            if string.sub(text_name, 1, 5) == "text_" then
+                local character = string.sub(text_name, 6)
+                if string.sub(character, 1, 5) ~= "text_" then -- Prevent metatext letters from being counted
+                    valid_chars[character] = true
+                end
             end
         end
     end
