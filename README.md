@@ -40,6 +40,10 @@ If you are on the [Baba Is You Discord](https://discord.gg/GGbUUse), you can als
 
 
 # Changelog
+- **1.3.4** (6/9/24)
+  - Fixed turning nuhuh and turning offset not working
+  - Fixed duplicate word salad option. The duplicate option should've been a different option "Echo Word Units"
+  - Fixed a typo in glossary
 - **1.3.3** (6/7/24)
   - Made compatible with the [word glossary mod!](https://github.com/PlasmaFlare/baba-word-glossary)
   - [Word Salad] Updated to 1.6.1. This includes BOOST, ALIGNED, and AMBIENT as newly added words!
