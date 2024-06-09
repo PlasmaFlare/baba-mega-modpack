@@ -323,9 +323,6 @@ editor_objlist["text_turning_offset"] =
 
 formatobjlist()
 
-local DirTextDisplay = PlasmaModules.load_module("general/directional_text_display")
-DirTextDisplay:register_directional_text("turning_offset")
-
 word_names["offsetright"] = "offset (right)"
 word_names["offsetup"] = "offset (up)"
 word_names["offsetleft"] = "offset (left)"

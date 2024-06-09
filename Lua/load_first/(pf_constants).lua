@@ -22,6 +22,8 @@ arrow_properties = {
 	shift=true,
 	select=true,
 	boom=true,
+    offset=true, --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
+    nuhuh=true,
 }
 
 turning_word_names = {
@@ -40,6 +42,8 @@ turning_word_names = {
     select=true,
     boom=true,
     beside=true,
+    offset=true, --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
+    nuhuh=true,
 }
 
 branching_text_names = {
@@ -60,7 +64,11 @@ branching_text_names = {
     besideleft = true,
     besideright = true,
     feeling = true,
-    ["and"] = true
+    ["and"] = true,
+    offsetright="offset (right)", --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
+	offsetup="offset (up)",
+	offsetleft="offset (left)",
+	offsetdown="offset (down)",
 }
 
 arrow_property_display = {
