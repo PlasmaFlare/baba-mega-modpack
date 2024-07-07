@@ -1,4 +1,4 @@
-plasma_modpack_version = "1.5.15"
+plasma_modpack_version = "1.5.16"
 
 br_prefix = "branching_"
 br_prefix_len = string.len(br_prefix)
