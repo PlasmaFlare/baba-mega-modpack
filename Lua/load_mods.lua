@@ -5,8 +5,12 @@ local dir = pf_lua_dir
 local load_order = {
     "load_first",
     "merged",
+	"mod_cardinality",
+	"mod_extrem",
     "mod_glitch",
+	"mod_glyph",
 	"mod_local",
+	"mod_metatext",
 	"mod_nuhuh",
 	"mod_offset",
 	"mod_past",
@@ -14,8 +18,11 @@ local load_order = {
 	"mod_persist",
 	"mod_plasma",
 	"mod_stringwords",
+	"mod_shrugsimontiger",
+	"mod_trash",
 	"mod_visit",
 	"mod_word_salad",
+	"mod_delete",
     "load_last"
 }
 

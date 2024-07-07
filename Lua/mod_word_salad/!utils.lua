@@ -6,8 +6,7 @@ tools.lua
 -- delunit(): update ECHO
 -- create(): update ECHO
 -- update(): update ECHO
--- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted) + keep track of level sinful status and alignment
--- writerules(): replace instances of "AMBIENT" with "AMBIENT (OBJECT)" in pause menu rules (currently unused because of the hacky ambient implementation), allow prefixes to have custom visual names
+-- getlevelsurrounds(): keep track of any text at the level's position (including the level itself if it was converted) + keep track of level sinful status
 
 undo.lua
 -- undo(): add "levelkarma" and "unitkarma" events, keep karma when undoing destruction/conversion. Add code checks when something related to ECHO is undone
@@ -51,7 +50,7 @@ mapcursor.lua
 -- mapcursor_setonlevel(): ENTER
 
 movement.lua
--- movecommand(): add checks for VESSEL and VESSEL2, set karma when a weak object moves into an obstacle unless the obstacle is REPENT, implement HOP/HOPS for direct movements, implement BOOST/BOOSTS
+-- movecommand(): add checks for VESSEL and VESSEL2, set karma when a weak object moves into an obstacle unless the obstacle is REPENT, implement HOP/HOPS for direct movements
 -- move(): add karma for OPEN/SHUT and EAT unless the sinner is REPENT
 -- trypush(): add HOP/HOPS for pushable objects
 -- dopush(): add karma for when a WEAK object is pushed into an obstacle unless it's REPENT, add HOP/HOPS for pushable objects
@@ -68,7 +67,6 @@ update.lua
 rules.lua
 -- code(): look for ECHO units?
 -- codecheck(): add rules from ECHO objects (?)
--- addoption(): implement AMBIENT (hacky af)
 
 clears.lua
 -- clearunits(): clear ECHO stuff
@@ -82,7 +80,6 @@ letterunits.lua
 -- TODO list:
 ---- improve handling of karma units (add a map to keep track of which unitids have karma?)
 ---- fix ECHO bugs (ECHOing letters sometimes disables parsing, cannot ECHO multiple words in the same spot at once)
----- make AMBIENT less jank
 
 -- Change the name of ALIGNEDX and ALIGNEDY in the rule list
 word_names["alignedx"] = "x-aligned"
@@ -101,28 +98,30 @@ table.insert(mod_hook_functions["level_start"],
 
 -- Clear the "Was level sinful" value when ending a level (we can't do that in the level start hook, because it's also called when restarting!)
 table.insert(mod_hook_functions["level_end"],
-    function()
-		ws_wasLevelSinful = false
-		ws_levelAlignedRow=false
-		ws_levelAlignedColumn=false
-		ws_ambientObject = "level"
-	end
+				function()
+					ws_wasLevelSinful = false
+					ws_levelAlignedRow=false
+					ws_levelAlignedColumn=false
+					ws_ambientObject = "level"
+				end
 )
+
 
 -------- VESSEL/ALIVE FUNCTIONS --------
 
 -- Checks if the given property is a "player" property
 function ws_isPlayerProp(property)
 	return property == "you" or property == "you2" or property == "3d" or property == "alive"
+			or property == "puppet" or property == "youplus" --@mods (extrem x word salad)
 end
 
 
 -- Checks if the level is a "player"
 function ws_isLevelPlayer(i,j)
 	if (i == nil) or (j == nil) then
-		return (hasfeature("level","is","you",1) ~= nil) or (hasfeature("level","is","you2",1) ~= nil) or (hasfeature("level","is","3d",1) ~= nil) or (hasfeature("level","is","alive",1) ~= nil)
+		return (hasfeature("level","is","you",1) ~= nil) or (hasfeature("level","is","you2",1) ~= nil) or (hasfeature("level","is","3d",1) ~= nil) or (hasfeature("level","is","alive",1) ~= nil) or (hasfeature("level","is","youplus",1) ~= nil) or (hasfeature("level","is","puppet",1) ~= nil)
 	else
-		return (hasfeature("level","is","you",1,i,j) ~= nil) or (hasfeature("level","is","you2",1,i,j) ~= nil) or (hasfeature("level","is","3d",1,i,j) ~= nil) or (hasfeature("level","is","alive",1,i,j) ~= nil)
+		return (hasfeature("level","is","you",1,i,j) ~= nil) or (hasfeature("level","is","you2",1,i,j) ~= nil) or (hasfeature("level","is","3d",1,i,j) ~= nil) or (hasfeature("level","is","alive",1,i,j) ~= nil) or (hasfeature("level","is","puppet",1,i,j) ~= nil) or (hasfeature("level","is","youplus",1,i,j) ~= nil)
 	end
 end
 
@@ -132,7 +131,9 @@ function ws_findPlayers()
 	local yous = findfeature(nil,"is","you") or {}
 	local yous2 = findfeature(nil,"is","you2")
 	local yous3 = findfeature(nil,"is","3d")
-	local yous4 = findfeature(nil,"is","alive") -- Added check for ALIVE
+	local yous42 = findfeature(nil,"is","alive") -- Added check for ALIVE
+	local yous4 = findfeature(nil, "is", "puppet")
+	local yous5 = findfeature(nil, "is", "youplus")
 
 	if (yous2 ~= nil) then
 		for _,v in ipairs(yous2) do
@@ -146,20 +147,33 @@ function ws_findPlayers()
 		end
 	end
 
-	if (yous4 ~= nil) then -- Add ALIVE entities to "yous"
-		for _,v in ipairs(yous4) do
+	if (yous42 ~= nil) then -- Add ALIVE entities to "yous"
+		for _,v in ipairs(yous42) do
 			table.insert(yous, v)
 		end
 	end
-	
+
+
+	if (yous4 ~= nil) then
+		for i, v in ipairs(yous4) do
+			table.insert(yous, v)
+		end
+	end
+
+	if (yous5 ~= nil) then
+		for i, v in ipairs(yous5) do
+			table.insert(yous, v)
+		end
+	end
+
 	return yous
 end
 
 
 -- Checks if empty should be considered a player
 function ws_areTherePlayerEmpties()
-	return (#findallfeature("empty","is","you") > 0) or (#findallfeature("empty","is","you2") > 0) or (#findallfeature("empty","is","3d") > 0) or (#findallfeature("empty","is","alive") > 0)
-end
+	return ((#findallfeature("empty","is","you") > 0) or (#findallfeature("empty","is","you2") > 0) or (#findallfeature("empty","is","youplus") > 0) or (#findallfeature("empty","is","3d") > 0) or (#findallfeature("empty","is","alive") > 0)or (#findallfeature("empty", "is", "puppet") > 0))
+	end
 
 
 -- Returns all the features of the type "level is you-id" or "level is vessel-id"
@@ -205,8 +219,9 @@ function ws_findplayerfeatureat(x,y)
 	local result = findfeatureat(nil,"is","you",x,y) or {}
 	local you2 = findfeatureat(nil,"is","you2",x,y) or {}
 	local you3 = findfeatureat(nil,"is","3d",x,y) or {}
-	local you4 = findfeatureat(nil,"is","alive",x,y) or {}
-
+	local you42 = findfeatureat(nil,"is","alive",x,y) or {}
+	local you4 = findfeatureat(nil,"is","youplus",x,y) or {}
+	local you5 = findfeatureat(nil,"is","puppet",x,y) or {}
 	for _,v in ipairs(you2) do
 		table.insert(result, v)
 	end
@@ -215,7 +230,15 @@ function ws_findplayerfeatureat(x,y)
 		table.insert(result, v)
 	end
 
+	for _,v in ipairs(you42) do
+		table.insert(result, v)
+	end
+
 	for _,v in ipairs(you4) do
+		table.insert(result, v)
+	end
+
+	for _,v in ipairs(you5) do
 		table.insert(result, v)
 	end
 
@@ -311,6 +334,14 @@ function ws_karma(x, y, reason, victimid, delthese, removalshort, removalsound)
 		-- 		ws_setKarma(sinkerid) -- The sinker is safe, we can directly set its karma
 		-- 	end
 		-- end
+	elseif reason == "toxic" then
+		-- @mods(extrem x word salad) Implement karma for toxic.
+		local toxicfeatures = findfeatureat(nil,"is","toxic",x,y)
+		for _,toxicid in ipairs(toxicfeatures) do
+			if floating(toxicid,victimid,x,y) then -- Only the acids on the same float level of the poisoned object are evil
+				delthese,removalshort,removalsound = ws_setKarmaOrDestroy(x,y,toxicid,delthese,removalshort,removalsound)
+			end
+		end
 	end
 	return delthese, removalshort, removalsound
 end
@@ -462,7 +493,7 @@ function ws_findechounits()
 		for i,v in ipairs(featureindex["echo"]) do -- For all rules that contain ECHO
 									-- Example for KEKE ON BABA AND NOT NEAR ME IS ECHO
 			local rule = v[1]		-- The basic rule: {"keke", "is", "echo"}
-			local conds = v[2]		-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}
+			local conds = v[2]		-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}-- The conditions: {"on", {"baba"}}, {"not near", {"me"}}
 			local ids = v[3]		-- Unit ids of the text pieces: {{unitid of "keke"}, {unitid of "is"}, {unitid of "echo"}...}
 			
 			local name = rule[1]	-- The object in the rule being ECHO ("keke", "not baba" etc.)
@@ -531,7 +562,7 @@ function ws_findechounits()
 						end
 					end
 				else
-					MF_alert("No ids listed in Echo-related rule! rules.lua line 1302 - this needs fixing asap (related to grouprules line 1118)") -- um, this was clearly copied from the WORD code
+					MF_alert("No ids listed in Echo-related rule! mod_word_salad/!utils.lua line 540") -- um, this was clearly copied from the WORD code
 				end
 			end
 		end
@@ -638,8 +669,9 @@ function ws_findechounits()
 	-- local all_echo_unitids = findallfeature(nil, "is", "echo", true)
 	local all_echo_units = getunitswitheffect("echo")
 	-- For each echo object
-	for _,unit in ipairs(all_echo_units) do
+	for ind,unit in ipairs(all_echo_units) do
 		local unit_name = getname(unit)
+		-- timedmessage("Found echo unit: " .. unit_name, 0, 2 + ind) -- DEBUG
 		-- Skip text objects
 		if (unit_name ~= "text") then
 			 -- We use the unit name as the key, but it might be the first time it has to be added to the echo map
@@ -650,9 +682,10 @@ function ws_findechounits()
 			local this_x = unit.values[XPOS]
 			local this_y = unit.values[YPOS]
 
+			-- @Merge: set flag for explicit querying of all texts (see findtype() function def for why)
 			if (gettilenegated(this_x, this_y) == false) then
-				local text_ids = findtype({"text"}, this_x, this_y) -- We don't need to specify the id of this unit because it can't be text
-			
+				local text_ids = findtype({"text"}, this_x, this_y, nil, false, true) -- We don't need to specify the id of this unit because it can't be text
+
 				-- EXPERIMENT: support echoing word units
 				if (WS_CAN_ECHO_WORD_UNITS) then
 					for _,words in ipairs(wordunits) do -- The echomap is always filled after the word map, so this should work??
@@ -664,7 +697,7 @@ function ws_findechounits()
 						end
 					end
 				end
-			
+
 				for _,textid in ipairs(text_ids) do
 					local text_unit = mmf.newObject(textid)
 					-- Pair of {name, type, position}, for example {"baba", 0, 6}, {"win", 2, 11} etc.

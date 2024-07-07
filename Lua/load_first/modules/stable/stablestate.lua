@@ -308,6 +308,21 @@ function StableState:register_this_text_in_stablerule(this_unitid)
     return stable_this_id
 end
 
+local function metatext_stabledisplay(text)
+    local metalevel = getmetalevel(text)
+    if metalevel >= 3 then
+        return "(text_".."x"..metalevel..")"..string.sub(text, (metalevel + 1) * string.len("text_") + 1)
+    end
+    return text
+
+    --[[ 
+        @Merge Side note about metatext x stable: it technically makes sense to refer a text unit by its "technical name" (Read: name with "text_"'s prepended).
+        However before metatext merge, all text was simply refered in stabledisplay as "text". Coming from a vanilla perspective, it just feels different
+        for the game to treat each text individually instead of refering to all texts as a collective whole. For this reason, its probably the best to make
+        the metatext merge in a distinctively seperate branch from the main master branch.
+     ]]
+end
+
 -- local
 function get_stablerule_display(feature)
     local custom = MF_read("level","general","customruleword")
@@ -315,8 +330,11 @@ function get_stablerule_display(feature)
     local text = ""
    
     local rule = feature[1]
+    local targetdisplay = metatext_stabledisplay(rule[1])
+    local effectdisplay = metatext_stabledisplay(rule[3])
+
     if (#custom == 0) then
-        text = text .. rule[1] .. " "
+        text = text .. targetdisplay  .. " "
     else
         text = text .. custom .. " "
     end
@@ -337,7 +355,7 @@ function get_stablerule_display(feature)
 
     if #ids == 0 and not has_base_tag then
         if (#custom == 0) then
-            return rule[1].." "..rule[2].." "..rule[3]
+            return targetdisplay.." "..rule[2].." "..effectdisplay
         else
             return custom.." "..custom.." "..custom 
         end
@@ -396,13 +414,13 @@ function get_stablerule_display(feature)
                                                 text = text.." or "
                                             end
                                             first = false
-                                            text = text..name
+                                            text = text..metatext_stabledisplay(name)
                                         end
                                         text = text..") "
                                     end
                                 else
                                     if (#custom == 0) then
-                                        text = text .. d .. " "
+                                        text = text .. metatext_stabledisplay(d) .. " "
                                     else
                                         text = text .. custom .. " "
                                     end
@@ -448,7 +466,7 @@ function get_stablerule_display(feature)
     end
     
     if (#custom == 0) then
-        text = text .. rule[2] .. " " .. target
+        text = text .. rule[2] .. " " .. effectdisplay
     else
         text = text .. custom .. " " .. custom
     end

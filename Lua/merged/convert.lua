@@ -1,3 +1,15 @@
+function findvirusobjs()
+	local viruses = {}
+
+	for i, v in ipairs(units) do
+		if hasfeature(v.strings[UNITNAME], "is", "virus", v.fixed) then
+			table.insert(viruses, v.strings[UNITNAME])
+		end
+	end
+
+	return viruses
+end
+
 function dolevelconversions()
 	--This line, added for the glitch mod, skips some checks if the level is turning into a glitch object.
 	--Also: Make sure the level wasn't just started! Otherwise the game breaks on a level that infinite loops from the starting state, for some reason.
@@ -12,11 +24,15 @@ function dolevelconversions()
 			local conds = matdata[2]
 			local mat2 = matdata[1]
 			local op = matdata[3]
-			
-			if (op == "write") then
+
+			if (op == "write") or (op == "draw") then
 				mat2 = "text_" .. matdata[1]
 			end
 			
+			if (op == "inscribe") then
+				mat2 = "glyph_" .. matdata[1]
+			end
+
 			local objectfound = false
 			
 			if (unitreference[mat2] ~= nil) then
@@ -565,8 +581,12 @@ function convert(stuff,mats,dolevels_)
 							local conds = matdata[2]
 							local op = matdata[3]
 							
-							if (op == "write") then
+							if (op == "write") or (op == "draw") then
 								mat2 = "text_" .. matdata[1]
+							end
+							
+							if (op == "inscribe") then
+								mat2 = "glyph_" .. matdata[1]
 							end
 							
 							if (reverting == false) then
@@ -658,8 +678,12 @@ function convert(stuff,mats,dolevels_)
 							local conds = matdata[2]
 							local op = matdata[3]
 							
-							if (op == "write") then
+							if (op == "write") or (op == "draw") then
 								mat2 = "text_" .. matdata[1]
+							end
+							
+							if (op == "inscribe") then
+								mat2 = "glyph_" .. matdata[1]
 							end
 							
 							local objectfound = false
@@ -710,44 +734,94 @@ function conversion(dolevels_)
 		
 		local operator = words[2]
 		
-		if (operator == "is") or (operator == "write") or (operator == "become") then
+		if (operator == "is") or (operator == "write") or (operator == "become") or (operator == "inscribe") or (operator == "draw") then
 			local output = {}
 			local name = words[1]
 			local thing = words[3]
-			
-			if (getmat(thing) ~= nil) or (thing == "not " .. name) or (thing == "all") or (unitreference[thing] ~= nil) or ((thing == "text") and (unitreference["text_text"] ~= nil)) or (thing == "revert") or ((operator == "write") and getmat_text("text_" .. name)) then
+
+			if (not dolevels) and (operator == "is" or operator == "become") and name ~= "glyph" and name ~= "text" and (string.sub(name,1,4)) ~= "meta" and ((thing ~= "not " .. name) and (thing ~= "all") and (thing ~= "text") and (thing ~= "revert") and (thing ~= "meta") and (thing ~= "unmeta")) and unitreference[thing] == nil and (string.sub(thing,1,5) == "text_" or string.sub(thing,1,6) == "glyph_") and ((unitlists[name] ~= nil and #unitlists[name] > 0) or name == "empty" or name == "level") then
+				tryautogenerate(thing)
+			elseif (not dolevels) and (operator == "write" or (operator == "draw")) and name ~= "glyph" and name ~= "text" and (string.sub(name,1,4)) ~= "meta" and (thing ~= "not " .. name) and unitreference["text_" .. thing] == nil and (string.sub(thing,1,5) == "text_" or string.sub(thing,1,6) == "glyph_") and ((unitlists[name] ~= nil and #unitlists[name] > 0) or name == "empty" or name == "level") then
+				tryautogenerate("text_" .. thing)
+			elseif (not dolevels) and (operator == "inscribe") and name ~= "glyph" and name ~= "text" and (thing ~= "not " .. name) and unitreference["glyph_" .. thing] == nil and (string.sub(thing,1,5) == "text_" or string.sub(thing,1,6) == "glyph_") then
+				tryautogenerate("glyph_" .. thing)
+			end
+
+			if (name ~= "text") --@Merge: omg beeeeg if block
+			  and (string.sub(name,1,4) ~= "meta")
+			  and ((getmat(thing) ~= nil)
+			  	or (thing == "not " .. name)
+				or (thing == "all")
+				or (unitreference[thing] ~= nil)
+				or ((thing == "text") and (unitreference["text_text"] ~= nil))
+				or (thing == "revert")
+				or (thing == "glyph")
+				or (thing == "meta")
+				or (thing == "unmeta")
+				or ((string.sub(thing,1,4) == "meta") and (unitreference["text_" .. thing] ~= nil))
+				or ((operator == "write" or (operator == "draw")) and getmat_text("text_" .. name)))
+			  or ((operator == "inscribe") 
+			    and (getmat("glyph_" .. name) or getmat(name)))
+					or (thing == "infect") or (operator == "draw")
+			  then -- @Merge: Original glyph mod has "((string.sub(name, 1, 5) == "text_") and getmat_text(name))". I think this is its own version of metatext??? in which case maybe not include it?
+				
 				if (featureindex[name] ~= nil) and (alreadydone[name] == nil) then
 					alreadydone[name] = 1
-					
+
 					for a,b in ipairs(featureindex[name]) do
 						local rule = b[1]
 						local conds = b[2]
 						local target,verb,object = rule[1],rule[2],rule[3]
-						
+
 						if (verb == "is") or (verb == "become") then
 							-- EDIT: add check for ECHO
-							if (target == name) and (object ~= "word") and (object ~= "echo") and ((object ~= name) or (verb == "become")) then
-								if (object ~= "text") and (object ~= "revert") then
+							if (target == name) and (object ~= "word") and (object ~= "echo") and (object ~= "symbol") and ((object ~= name) or (verb == "become")) then
+								if (object ~= "text") and (object ~= "revert") and (object ~= "createall") and (object ~= "glyph") and (object ~= "meta") and (object ~= "unmeta") and (string.sub(object,1,4) ~= "meta") then
 									if (object == "not " .. name) then
 										table.insert(output, {"error", conds, "is"})
+
+									elseif (string.sub(object, 1, 5) == "text_") or (string.sub(object, 1, 6) == "glyph_") then
+										table.insert(output, {object, conds, "is"})
 									else
 										for d,mat in pairs(objectlist) do
-											if (string.sub(d, 1, 5) ~= "group") and (d == object) then
+											if (string.sub(d, 1, 5) ~= "group") and ((d == object)) then
 												table.insert(output, {object, conds, "is"})
 											end
 										end
 									end
 								elseif (name ~= object) or (verb == "become") then
-									if (object ~= "revert") then
+									if (object ~= "revert") and (object ~= "meta") and (object ~= "unmeta") then
 										table.insert(output, {object, conds, "is"})
 									else
 										table.insert(output, 1, {object, conds, "is"})
 									end
 								end
 							end
-						elseif (verb == "write") then
+							if (verb == "is") and (object == "infect") then
+								local viruses = findvirusobjs()
+
+								if (#viruses > 0) then
+									for c, d in ipairs(viruses) do
+										table.insert(output, { d, conds, "is" })
+									end
+								end
+							end
+
+						elseif (verb == "write") or (operator == "draw") then
 							if (string.sub(object, 1, 4) ~= "not ") and (target == name) then
-								table.insert(output, {object, conds, "write"})
+								if toometafunc("text_" .. object) then
+									table.insert(output, {"toometa", conds, "is"})
+								else
+									table.insert(output, {object, conds, "write"})
+								end
+							end
+						elseif (verb == "inscribe") then
+							if (string.sub(object, 1, 4) ~= "not ") and (target == name) then
+								if toometafunc("glyph_" .. object) then
+									table.insert(output, {"toometa", conds, "is"})
+								else
+									table.insert(output, {object, conds, "inscribe"})
+								end
 							end
 						end
 					end
@@ -760,10 +834,10 @@ function conversion(dolevels_)
 						local object = v3[1]
 						local conds = v3[2]
 						local op = v3[3]
-						
+
 						if (op == "is") then
 							-- EDIT: add check for ECHO
-							if (findnoun(object,nlist.brief) == false) and (object ~= "word") and (object ~= "echo") and (object ~= "text") then
+							if (findnoun(object,nlist.brief) == false) and (object ~= "word") and (object ~= "echo") and (object ~= "symbol") and (object ~= "text") and (object ~= "glyph") and (object ~= "meta") and (object ~= "unmeta") then
 								table.insert(conversions, v3)
 							elseif (object == "all") then
 								--[[
@@ -771,10 +845,57 @@ function conversion(dolevels_)
 								createall({name,conds})
 								]]--
 								table.insert(conversions, {"createall",conds})
-							elseif (object == "text") then
-								table.insert(conversions, {"text_" .. name,conds})
+							elseif (object == "text") or (object == "meta") then
+								local valid = true -- don't attempt conversion if the object does not exist
+								if unitreference["text_" .. name] == nil and unitreference[name] ~= nil and unitlists[name] ~= nil and #unitlists[name] > 0 then
+									valid = tryautogenerate("text_" .. name,name)
+								end
+								if valid then
+									table.insert(conversions, {"text_" .. name,conds})
+								end
+							elseif (object == "unmeta") and string.sub(name,1,5) == "text_" then
+								local valid = true -- don't attempt conversion if the object does not exist
+								if string.sub(name,6,10) == "text_" and unitreference[string.sub(name,6)] == nil and unitreference[name] ~= nil and unitlists[name] ~= nil and #unitlists[name] > 0 then
+									valid = tryautogenerate(string.sub(name,6))
+								end
+								if valid then
+									table.insert(conversions, {string.sub(name,6),conds})
+								end
+							elseif (string.sub(object,1,4) == "meta") then
+								local level = string.sub(object,5)
+								if tonumber(level) ~= nil and tonumber(level) >= -1 then
+									local basename,_ = string.gsub(name,"text_","")
+									basename,_ = string.gsub(basename,"glyph_","")
+									if basename == "" then
+										if string.sub(name,-2) == "h_" then
+											basename = "glyph_"
+										else
+											basename = "text_"
+										end
+									end
+									local newname = string.rep("text_",level + 1) .. basename
+									local valid = true -- don't attempt conversion the if object does not exist
+									if tonumber(level) >= 0 and unitreference[newname] == nil and ((unitreference[name] ~= nil and unitlists[name] ~= nil and #unitlists[name] > 0) or name == "empty" or name == "level") then
+										if string.sub(newname,1,5) == "text_" then
+											valid = tryautogenerate(newname)
+										else
+											valid = false
+										end
+									end
+									if valid then
+										table.insert(conversions, {newname,conds})
+									end
+								end
+							elseif (object == "glyph") then
+								local valid = true -- don't attempt conversion if the object does not exist
+								if unitreference["glyph_" .. name] == nil and unitreference[name] ~= nil and unitlists[name] ~= nil and #unitlists[name] > 0 then
+									valid = tryautogenerate("glyph_" .. name,name)
+								end
+								if valid then
+									table.insert(conversions, {"glyph_" .. name,conds})
+								end
 							end
-						elseif (op == "write") then
+						elseif (op == "write") or (op == "inscribe") or (op == "draw") then
 							table.insert(conversions, v3)
 						end
 					end

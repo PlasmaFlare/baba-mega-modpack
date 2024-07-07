@@ -12,10 +12,16 @@ end
 
 function DirTextDisplay:set_tt_display_direction(unit, dir)
     dir = dir or nil
-    local is_tt = self.directional_text_names[unit.strings[NAME]]
+
+    local unitname = unit.strings[NAME]
+    while string.sub(unitname, 1, 5) == "text_" do
+        unitname = string.sub(unitname, 6)
+    end
+
+    local is_tt = self.directional_text_names[unitname]
     if not is_tt then
         for i, prefix in pairs(self.directional_text_prefixes) do
-            if string.sub(unit.strings[NAME], 1, #prefix) == prefix then
+            if string.sub(unitname, 1, #prefix) == prefix then
                 is_tt = true
                 break
             end

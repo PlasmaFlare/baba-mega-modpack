@@ -46,7 +46,7 @@ function initialize_palette_groups()
     for i, v in pairs(editor_objlist) do
         if v.unittype == "text" and string.sub(v.name, 1, 5) == "text_" then
             local textname = string.sub(v.name, 6)
-            if v.type == 5 and textname ~= "sharp" and textname ~= "flat" then
+            if (v.type == 5 and textname ~= "sharp" and textname ~= "flat") or textname == "text_" then
                 table.insert(editor_objlist_multi_pairing_indexes["text_cut"], v.name)
             end
         end

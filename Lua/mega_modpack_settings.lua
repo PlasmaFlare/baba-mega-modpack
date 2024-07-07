@@ -1,19 +1,20 @@
-local mega_modpack_version = "1.3.4"
-local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare", mega_modpack_version)
-local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3", mega_modpack_version)
+local mega_modpack_version = "1.0.6 Stable"
+local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare and Ocean", mega_modpack_version)
+local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3 and Ocean", mega_modpack_version)
 
 local mod_list = {
     {name = "Plasma's Modpack",     author = "Plasmaflare",             color={4,4}},
     {name = "Patashu's Modpack",    author = "Patashu",                 color={3,1}},
     {name = "Persist",              author = "Randomizer",              color={0,3}},
-    {name = "Past",                 author = "EmilyEmmi",               color={3,1}},
-    {name = "Stringwords",          author = "Wrecking Games",          color={3,4}},
+    {name = "Past, Metatext, Delete",author = "EmilyEmmi",              color={3,1}},
+    {name = "Stringwords, TRASH",   author = "Wrecking Games",          color={3,4}},
+    {name = "Cardinality Mod",      author = "JustImagineYT",           color={3,4}},
     {name = "Word Salad",           author = "Huebird",                 color={2,1}},
-    {name = "Visit",                author = "Btd456Creeper",           color={0,3}},
-    {name = "Glitch",               author = "Btd456Creeper",           color={0,3}},
-    {name = "Nuhuh",                author = "Btd456Creeper",           color={0,3}},
-    {name = "Offset",               author = "Btd456Creeper",           color={0,3}},
-    {name = "Local",                author = "Mathguy",                 color={1,3}},
+    {name = "Visit, Glitch",        author = "Btd456Creeper",           color={0,3}},
+    {name = "Nuhuh, Offset",        author = "Btd456Creeper",           color={0,3}},
+    {name = "Local, Glyph",         author = "Mathguy",                 color={1,3}},
+    {name = "Extrem's Mods",        author = "Extrem",                  color={4,2}},
+    {name = "Nimi's Mods",          author = "Shrugsimontiger",         color={4,2}},
 }
 
 local mod_setting_data = {
@@ -112,6 +113,7 @@ local mod_setting_data = {
             },
         },
         settings_order = {"music_when_only_vessels", "do_hop_particles", "keep_level_karma", "can_enter_any", "echo_word_units"}
+
     },
     btd456creeper = {
         key = "btd456creeper_settings",
@@ -130,9 +132,28 @@ local mod_setting_data = {
             },
         },
         settings_order = {"infloop_level_glitch"}
+    },
+    -- NIMI MOD EDIT: add setting for throw
+    shrugsimontiger = {
+        key = "shrugsimontiger_settings",
+        button_label = "Shrugsimontiger Settings",
+        page_title = "$1,4Shrugsimontiger$0,3 Settings",
+        cfg_section = "shrugsimontiger",
+        color = {1,4},
+        settings_apply_func = apply_shrugsimontiger_settings,
+        settings = {
+            throw_push = {
+                name = "throw_push",
+                display = "Throw-push",
+                default = 1,
+                buttonfunc = "sh_throw_push",
+                tooltip = "If true, and a Throw object tries to push, Throw effects will apply to that too."
+            }
+        },
+        settings_order = {"throw_push"}
     }
 }
-local mod_setting_order = {"patashu", "word_salad", "persist", "btd456creeper"}
+local mod_setting_order = {"patashu", "word_salad", "persist", "btd456creeper", "shrugsimontiger"}
 
 local function setfenv(fn, env)
     local i = 1
@@ -195,10 +216,12 @@ local function read_setting(section, setting_data)
 end
 
 local function display_modpack_setting_button()
-    local buttonstring = "Mega Modpack Settings"
-    local x = screenw-( (#buttonstring + 5) * baba_font_consts.total_letter_w)
-    local y = f_tilesize * 1.5
-    make_plasma_button("mega_modpack_settings", "level", menufuncs.level.button, buttonstring, x, y, false)
+    if generaldata.values[MODE] == 5 then
+        local buttonstring = "Mega Modpack Settings"
+        local x = screenw-( (#buttonstring + 5) * baba_font_consts.total_letter_w)
+        local y = f_tilesize * 1.5
+        make_plasma_button("mega_modpack_settings", "level", menufuncs.level.button, buttonstring, x, y, false)
+    end
 end
 display_modpack_setting_button()
 
@@ -238,17 +261,21 @@ menufuncs.mega_modpack_settings = {
             table.insert(dynamic_structure, {{mod_data.key}})
         end
 
+        make_plasma_button("mega_metatext_settings", name, buttonid, "Metatext Mod Settings", item_x,item_y, false)
+        item_y = item_y + f_tilesize * 2
+        table.insert(dynamic_structure, {{"mega_metatext_settings"}})
+
         item_x = screenw * 0.5
-        item_y = f_tilesize * 4
+        item_y = f_tilesize * 3
         writetext("Full list of mods and their authors:", -1, item_x, item_y, name)
 
         for _, mod_info in ipairs(mod_list) do
             item_y = item_y + f_tilesize
             writetext(string.format("$0,2♄ %s - $%d,%d%s$0,3", mod_info.name, mod_info.color[1], mod_info.color[2], mod_info.author), -1, item_x, item_y, name)
         end
-        item_y = item_y + f_tilesize * 2
-        writetext("...Damn, that's a lot of mods.", -1, item_x, item_y, name)
+        item_y = item_y + f_tilesize * 1
 
+        writetext("...OMG, that's a lot of mods.", -1, item_x, item_y, name)
         -- make_plasma_button("metatextsettings", name, buttonid, "Metatext Settings", screenw * 0.15,item_y, false)
 
         local version_x = screenw-(#mega_modpack_name * 10) - 20
@@ -267,6 +294,14 @@ buttonclick_list["mega_mod_return"] = function()
     changemenu("level")
 end
 buttonclick_list["pfreturn"] = function()
+    changemenu("mega_modpack_settings")
+end
+buttonclick_list["mega_metatext_settings"] = function()
+    MF_menubackground(false)
+    changemenu("metatext_settings")
+end
+buttonclick_list["mtxt_return"] = function()
+    MF_menubackground(true)
     changemenu("mega_modpack_settings")
 end
 

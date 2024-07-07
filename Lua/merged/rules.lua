@@ -1,3 +1,10 @@
+toreplace = { "is", "eat", "make", "has", "fear", "follow", "write", "mimic", "was", "ate", "made", "had", "feared", "followed", "wrote", "mimicked", "willbe", "willhave", "willmake", "willfollow", "willwrite", "willeat", "willfear", "willmimic", "drew", "jotted", "typed", "acted", "performed", "willdraw", "willjot", "willtype", "willact", "willperform" }
+replacewith = { "is", "eat", "make", "has", "fear", "follow", "write", "mimic", "is", "eat", "make", "has", "fear", "follow", "write", "mimic", "is", "has", "make", "follow", "write", "eat", "fear", "mimic", "draw", "jot", "type", "act", "perform", "draw", "jot", "type", "act", "perform" }
+tense = { "present", "present", "present", "present", "present", "present", "present", "present", "past", "past", "past", "past", "past", "past", "past", "past", "future", "future", "future", "future", "future", "future", "future", "future", "past", "past", "past", "past", "past", "future", "future", "future", "future", "future" }
+pasttense = { "was", "ate", "made", "had", "feared", "followed", "wrote", "mimicked", "drew", "jotted", "typed", "acted", "performed" }
+presenttense = { "is", "eat", "made", "has", "fear", "follow", "write", "mimic", "draw", "jot", "type", "act", "perform" }
+futuretense = { "will be", "will eat", "will make", "will have", "will fear", "will follow", "will write", "will mimic", "will draw", "will jot", "will type", "will act", "will perform" }
+
 function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult_)
 	--[[ 
 		@mods(turning text) - Override reason: provide a hook to reinterpret turning text names based on their direction
@@ -29,7 +36,7 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult
 			local w = 1
 			
 			if (v.values[TYPE] ~= 5) and (v.flags[DEAD] == false) then
-				if (v.strings[UNITTYPE] == "text") then
+				if (v.strings[UNITTYPE] == "text") and not metatext_textisword then
 					
 					--Check for Nuh Uh! here
                     if (gettilenegated(x,y) == false) then
@@ -55,9 +62,14 @@ function codecheck(unitid,ox,oy,cdir_,ignore_end_,wordunitresult_,echounitresult
 						end
 						
 						if valid then
-                            --Check for Nuh Uh! here
-                            if (gettilenegated(x,y) == false) then
-								table.insert(result, {{b}, w, v.strings[UNITNAME], v.values[TYPE], cdir})
+							if (gettilenegated(x,y) == false) then
+								if metatext_textisword then
+									table.insert(result, {{b}, w, v.strings[NAME], v.values[TYPE], cdir})
+								elseif not isglyph(v) then
+									table.insert(result, {{b}, w, v.strings[UNITNAME], v.values[TYPE], cdir})
+								else
+									table.insert(result, {{b}, w, "glyph", 0, cdir})
+								end
 							end
 						end
 					end
@@ -193,6 +205,10 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 
 	local br_dir = get_perp_direction(dir)
 	local br_dir_vec = dirs[br_dir]
+
+	-- @mods(metatext) - This is set to true if we found "text_" in the results of the current call to codecheck().
+	-- This handles the sentence "text_ is is red" not parsing due to a recent optimization of hempuli introduced in version 461
+	local found_text_ = false
 	
 	local done = false
 	-- @Phase 1 - Go through units sequentially and build array of slots. Each slot contains a record of a text unit. So each slot can have stacked text.
@@ -236,7 +252,11 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 						verbfound = true
 					end
 					
-					if (v[4] == 0) then
+					if v[4] == 4 and is_str_special_prefix(v[3]) then
+						found_text_ = true
+					end
+					
+					if (v[4] == 0) or (v[4] == 4 and is_str_special_prefix(v[3])) then
 						objfound = true
 					end
 				
@@ -284,7 +304,7 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 					end
 				end
 				
-				if (sharedtype >= 0) and (prevsharedtype >= 0) and (#words > 0) and (maxw == 1) and (prevmaxw == 1) and (currw == 0) and not br_calling_calculatesentences_branch then
+				if (sharedtype >= 0) and (prevsharedtype >= 0) and (#words > 0) and (maxw == 1) and (prevmaxw == 1) and (currw == 0) and not br_calling_calculatesentences_branch and not found_text_ then
 					if ((sharedtype == 0) and (prevsharedtype == 0)) or ((sharedtype == 1) and (prevsharedtype == 1)) or ((sharedtype == 2) and (prevsharedtype == 2)) or ((sharedtype == 0) and (prevsharedtype == 2)) then
 						done = true
 						sents[step] = nil
@@ -584,6 +604,8 @@ function calculatesentences(unitid,x,y,dir,a,b,c,br_calling_calculatesentences_b
 	
 	return sentences,finals,maxpos,totalvariants,sentence_ids,firstwords,br_and_text_with_split_parsing, sentence_metadata
 end
+
+function is_str_special_prefix(str) return (str == "text_") or (str == "glyph_") end
 
 function docode(firstwords)
 	--[[ 
@@ -909,6 +931,10 @@ function docode(firstwords)
 						
 						local stop = false
 						
+						local prefix = "" --How many "text_"s are being used.
+						local tryasnoun = 0 --Which id we're going to use as type 0
+						local gottagoback = false --True if we need to restart parsing
+
 						local sent = sentences[i]
 						local sent_id = sent_ids[i]
 						
@@ -930,10 +956,6 @@ function docode(firstwords)
 							local tileid = s[3][1]
 							local tilewidth = s[4]
 							
-							if (string.sub(tilename, 1, 10) == "text_text_") then
-								tilename = string.sub(tilename, 6)
-							end
-							
 							local wordtile = false
 							
 							currtiletype = tiletype
@@ -949,13 +971,88 @@ function docode(firstwords)
 								1 = verbi
 								2 = quality
 								3 = alkusana (LONELY)
-								4 = Not
+								4 = Not/Text_
 								5 = letter
 								6 = And
 								7 = ehtosana
 								8 = customobject
 							]]--
 							
+							if tiletype == 4 and (is_str_special_prefix(tilename)) and tryasnoun ~= wordid then --text_ logic starts here
+								if tryasnoun == 0 then --If this is the first
+									if wordid + 1 <= #sent then
+										if stage ~= 3 and not stage2reached then --False after infix conditions and verbs
+											local phase = 0
+											for fwordid=wordid + 1,#sent do --Now we start looking into the future
+												if (sent[fwordid][2] ~= 4 or not is_str_special_prefix(sent[fwordid][1])) or (phase == 1 and is_str_special_prefix(sent[fwordid][1])) then --If this isn't a text_, unless we already encountered a noun.
+													if phase == 0 then --Move onto next phase if this is the first time
+														phase = 1
+													elseif (sent[fwordid][2] ~= 1 and sent[fwordid][2] ~= 6 and sent[fwordid][2] ~= 7 and sent[fwordid][2] ~= 4 and sent[fwordid][2] ~= pf_filler_text_type) then --Checks if this won't parse
+                            							phase = 0
+														break
+													elseif sent[fwordid][2] ~= 4 then --stop if we know it will parse
+														prefix = tilename .. prefix
+                            							phase = 0
+														break
+													end
+												elseif phase == 0 then --If we ran into a text_ first, we're gonna try it as a noun
+													tryasnoun = fwordid
+												end
+											end
+										if phase == 1 then
+											prefix = tilename .. prefix
+										elseif tryasnoun ~= 0 and prefix == "" then
+												phase = 0
+												for fwordid=wordid + 1,#sent do
+													if (sent[fwordid][2] ~= 4 or not is_str_special_prefix(sent[fwordid][1])) or (phase == 1 and is_str_special_prefix(sent[fwordid][1])) or (tryasnoun == fwordid) then
+														if phase == 0 then
+															phase = 1
+														elseif (sent[fwordid][2] ~= 1 and sent[fwordid][2] ~= 6 and sent[fwordid][2] ~= 7) then
+															tiletype = 9
+															break
+														else
+															prefix = tilename .. prefix
+															break
+														end
+													end
+												end
+											else
+												if prefix == "" then
+													tiletype = 9
+												end
+												tryasnoun = 0
+											end
+										else
+											for fwordid=wordid + 1,#sent do
+												if (sent[fwordid][2] ~= 4 or not is_str_special_prefix(sent[fwordid][1])) then
+													gottagoback = true
+													prefix = tilename .. prefix
+													break
+												elseif fwordid == #sent then
+													prefix = tilename .. prefix
+													tryasnoun = fwordid
+													break
+												end
+											end
+										end
+									end
+								else
+									prefix = tilename .. prefix --stack
+								end
+							elseif prefix ~= "" then --Parse this word as a noun
+								tiletype = 0
+								currtiletype = 0
+								tryasnoun = 0
+
+								-- @mods(metatext x plasma) - If "text_" is involved, make sure that the word to be text_'ed is interpreted literally
+								local tileobj = mmf.newObject(tileid)
+								tilename = tileobj.strings[NAME]
+
+								if objectlist[prefix .. tilename] == nil and objectpalette[prefix .. tilename] ~= nil then
+									objectlist[prefix .. tilename] = 1
+								end
+								prefix = ""
+							end
 							-- @filler text
 							if (tiletype == pf_filler_text_type) then
 								stop = false
@@ -1138,7 +1235,7 @@ function docode(firstwords)
 									end
 								end
 								
-								if (tiletype == 0) and (prevtiletype == 0) and (#notids > 0) then
+								if (tiletype == 0) and (prevtiletype == 0) and (#notids > 0) and not gottagoback then
 									notids = {}
 									notwidth = 0
 								end
@@ -1194,6 +1291,13 @@ function docode(firstwords)
 										end
 										
 										break
+									end
+								elseif gottagoback then
+									gottagoback = false
+									-- MF_alert(tostring(notslot) .. ", not -> A, " .. unique_id .. ", " .. sent_id)
+									local subsent_id = string.sub(sent_id, (notslot - existing_wordid)+1)
+									if notids[1] ~= nil then
+										table.insert(firstwords, {notids, dir, notwidth, "not", 4, sent, notslot, subsent_id})
 									end
 								end
 							end
@@ -1371,6 +1475,9 @@ function docode(firstwords)
 								else
 									table.insert(extraids_ifvalid, {prefix .. wname, wtype, wid})
 									extraids_current = wname
+									if is_str_special_prefix(wname) then
+										extraids_current = "text_butnoun"
+									end
 								end
 								
 								if (wcategory == 0) then
@@ -1496,10 +1603,14 @@ function docode(firstwords)
 								end
 								
 								if (wtype == 4) then
-									if (prefix == "not ") then
-										prefix = ""
+									if is_str_special_prefix(wname) then
+										prefix = prefix .. wname
 									else
-										prefix = "not "
+										if (prefix == "not ") then
+											prefix = ""
+										else
+											prefix = "not "
+										end
 									end
 								elseif (wtype ~= pf_filler_text_type) then
 									prefix = ""
@@ -1561,9 +1672,9 @@ function docode(firstwords)
 										ids = copytable(ids, group_object[3])
 										ids = copytable(ids, group_target[1][3])
 										ids = copytable(ids, target[3])
-										
+
 										pf_rule_metadata_index:register_rule(rule, group_object[3], group_target[1][3], target[3])
-										
+
 										for g,h in ipairs(extraids) do
 											ids = copytable(ids, h[3])
 										end
@@ -1611,7 +1722,7 @@ function docode(firstwords)
 	end
 end
 
-function addoption(option,conds_,ids,visible,notrule,tags_)
+function addoption(option,conds_,ids,visible,notrule,tags_,visualonly_)
 	--[[ 
 		@mods(this) - Override reason: hook for registering any pnoun rules in th_text_this.lua.
 			Also, prevent a few things that addoption usually does when adding a pnoun rule. These include processing
@@ -1620,9 +1731,16 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 	 --MF_alert(option[1] .. ", " .. option[2] .. ", " .. option[3])
 
 	local visual = true
+	local visualonly = false
 	
 	if (visible ~= nil) then
 		visual = visible
+	end
+	if visualonly_ ~= nil then
+		visualonly = visualonly_
+		if visualonly == true and visual == false then
+			return
+		end
 	end
 	
 	local conds = {}
@@ -1632,58 +1750,239 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 	else
 		MF_alert("nil conditions in rule: " .. option[1] .. ", " .. option[2] .. ", " .. option[3])
 	end
-	
 	local tags = tags_ or {}
-	
+	local shownrule = nil
+
+	--[[
+		@Merge(glyph x metatext): disable glyph mod's implementation of metatext. Metatext mod has the system all figured out.
+
+		Also, the 'option[1] = "text"' causes the game to stack overflow. Metatext mod's way of treating text_text is similar to "all" where
+		the rule containing "text" is expanded to all text object types (with a few exceptions). For instance if "text is push", the rule will expand to:
+			- text_baba is push
+			- text_is is push
+			- text_you is push
+			- text_push is push
+			(etc)
+		This causes a nested addoption() call with the above subrules that happens within the block of code that starts with:
+			'if target == "text" and fullunitlist ~= nil then'
+		But with the 'option[1] = "text"', the subrules change to target ALL of text instead of the specific text object
+		(Eg: "text_baba is push" -> "text is push"). Therefore, it causes infinite calls to addoption().
+	 ]]
+	-- if (string.sub(option[1], 1, 5) == "text_") then
+	-- 	shownrule = copyrule({option, conds, ids, tags})
+	-- 	table.insert(conds, {"references", {" " .. string.sub(option[1], 6)}})
+	-- 	option[1] = "text"
+	-- else
+	--[[
+	if (string.sub(option[1], 1, 6) == "glyph_") then
+		print(option[1], option[2], option[3])
+		shownrule = copyrule({option, conds, ids, tags})
+		table.insert(conds, {"references", {" " .. string.sub(option[1], 7)}})
+		option[1] = "glyph"
+	end
+	-- if (string.sub(option[1], 1, 5) == "not text_") then
+	-- 	shownrule = copyrule({option, conds, ids, tags})
+	-- 	option[1] = "all"
+	-- else
+	if (string.sub(option[1], 1, 6) == "not glyph_") then
+		shownrule = copyrule({option, conds, ids, tags})
+		option[1] = "glyph"
+	end
+	-- if ((option[1] == "text") or (option[3] == option[1])) and (string.sub(option[3], 1, 5) == "text_") and (option[2] == "is") then
+	-- 	local newconds = {}
+	-- 	newconds = copyconds(newconds, conds)
+	-- 	addoption({option[3], "is", "text"}, newconds,ids,false,notrule,tags_)
+	-- else
+	if ((option[1] == "glyph") or (option[3] == option[1])) and (string.sub(option[3], 1, 6) == "glyph_") and (option[2] == "is") then
+		local newconds = {}
+		newconds = copyconds(newconds, conds)
+		addoption({option[3], "is", "glyph"}, newconds,ids,false,notrule,tags_)
+	end
+
+	if (option[1] == "level") and (option[2] == "become") and (option[3] == "level") then
+		shownrule = copyrule({option, conds, ids, tags})
+		table.insert(conds, {"never", {}})
+
+	end
+	--]]
 	if (#option == 3) then
+
 		local rule = {option,conds,ids,tags}
 		local allow_add_to_featureindex, is_pnoun_target, is_pnoun_effect, is_pnoun_rule = scan_added_feature_for_pnoun_rule(rule, visual)
 		if not allow_add_to_featureindex then
 			return
 		end
-		
-		table.insert(features, rule)
+
+		for i, v in pairs(toreplace) do
+			if option[2] == toreplace[i] then
+				if tense[i] ~= "present" then
+					option[2] = replacewith[i]
+					table.insert(conds, { "feels" .. tense[i], {} })
+					if (featureindex[replacewith[i]] == nil) then
+						featureindex[replacewith[i]] = {}
+					end
+					table.insert(featureindex[replacewith[i]], rule)
+				end
+			end
+		end
+
+		if disable_text_metatext then
+			option[1] = trueidentity(option[1])
+			option[3] = trueidentity(option[3])
+		end
+
 		local target = option[1]
 		local verb = option[2]
 		local effect = option[3]
 
-		-- EDIT: EXTREMELY HORRIBLE HACKY WAY TO IMPLEMENT AMBIENT
+		-- EDIT: EXTREMELY HORRIBLE HACKY WAY TO IMPLEMENT AMBIENT @update: hopefully it doesn't mess w/ metatext
 		if (target == "ambient") then
 			target = ws_ambientObject
 			option[1] = ws_ambientObject
 		elseif (target == "not ambient") then
 			target = "not "..ws_ambientObject
 		end
-		
+
 		if (effect == "ambient") then
 			effect = ws_ambientObject
 			option[3] = ws_ambientObject
 		elseif (effect == "not ambient") then
 			effect = "not "..ws_ambientObject
 		end
+
+		local foundtag = false
+		if metatext_fixquirks then
+			for num,tag in pairs(tags) do
+				if tag == "text" or (string.sub(tag,1,4) == "meta" and tag ~= "meta-1") then
+					foundtag = true
+					break
+				end
+			end
+		end
+		if foundtag or (metatext_hasmaketextnometa and (string.sub(target,1,5) == "text_" or string.sub(target,1,4) == "meta")) then
+			if effect == "text" then
+				if verb == "is" and foundtag then
+					effect = target
+				elseif verb == "has" or verb == "become" then
+					effect = "text_text"
+				elseif verb == "make" then
+					visualonly = true
+				end
+			elseif effect == "not text" then
+				if verb == "is" and foundtag then
+					effect = "not " .. target
+				elseif verb == "has" or verb == "become" then
+					effect = "not text_text"
+				elseif verb == "make" then
+					visualonly = true
+				end
+			elseif string.sub(effect,1,5) == "group" or string.sub(effect,1,9) == "not group" then
+				if (verb == "has" or verb == "make" or verb == "become") and foundtag then
+					return
+				end
+			end
+			rule = {{target,verb,effect},conds,ids,tags}
+		end
+		local foundtag = false
+		if metatext_fixquirks then
+			for num,tag in pairs(tags) do
+				if tag == "glyph" then
+					foundtag = true
+					break
+				end
+			end
+		end
+		if foundtag then
+			if effect == "glyph" then
+				if verb == "is" and foundtag then
+					effect = target
+				elseif verb == "has" or verb == "become" then
+					effect = "glyph_glyph"
+				elseif verb == "make" then
+					visualonly = true
+				end
+			elseif effect == "not glyph" then
+				if verb == "is" and foundtag then
+					effect = "not " .. target
+				elseif verb == "has" or verb == "become" then
+					effect = "not glyph_glyph"
+				elseif verb == "make" then
+					visualonly = true
+				end
+			elseif string.sub(effect,1,5) == "group" or string.sub(effect,1,9) == "not group" then
+				if (verb == "has" or verb == "make" or verb == "become") and foundtag then
+					return
+				end
+			end
+			rule = {{target,verb,effect},conds,ids,tags}
+		end
+		if metatext_istextnometa and (effect == "text" or effect == "not text") and verb == "is" and (string.sub(target,1,5) == "text_" or string.sub(target,1,4) == "meta") then
+			if effect == "text" then
+				effect = target
+			else
+				effect = "not " .. target
+			end
+			rule = {{target,verb,effect},conds,ids,tags}
+		elseif metatext_istextnometa and (effect == "glyph" or effect == "not glyph") and verb == "is" and (string.sub(target,1,6) == "glyph_") then
+			if effect == "glyph" then
+				effect = target
+			else
+				effect = "not " .. target
+			end
+			rule = {{target,verb,effect},conds,ids,tags}
+		elseif ((string.sub(effect, 1, 4) == "meta") or (string.sub(effect, 1, 8) == "not meta")) and (verb == "is" or verb == "become") then
+			local isnot = (string.sub(effect,1,8) == "not meta")
+			local level = string.sub(effect,5)
+			if isnot then
+				level = string.sub(effect,9)
+			end
+			if tonumber(level) ~= nil and tonumber(level) >= -1 then
+				local metalevel = getmetalevel(target)
+				if metalevel == tonumber(level) and (findnoun(target,nlist.brief) == false and target ~= "text") then
+					effect = target
+					if isnot then
+						effect = "not " .. target
+					end
+					rule = {{target,verb,effect},conds,ids,tags}
+				end
+			end
+		end
+		if not visualonly then
+			table.insert(features, rule)
+		end
 	
-		if (featureindex[effect] == nil) then
+		if (featureindex[effect] == nil) and not visualonly then
 			featureindex[effect] = {}
 		end
 		
-		if (featureindex[target] == nil) then
+		if (featureindex[target] == nil) and not visualonly then
 			featureindex[target] = {}
 		end
 		
-		if (featureindex[verb] == nil) then
+		if (featureindex[verb] == nil) and not visualonly then
 			featureindex[verb] = {}
 		end
 		
-		table.insert(featureindex[effect], rule)
-		table.insert(featureindex[verb], rule)
+		if not visualonly then
+			table.insert(featureindex[effect], rule)
+			table.insert(featureindex[verb], rule)
+		end
 		
-		if (target ~= effect) then
+		if (target ~= effect) and not visualonly then
 			table.insert(featureindex[target], rule)
 		end
 		
 		if visual and not is_pnoun_rule then
-			local visualrule = copyrule(rule)
-			table.insert(visualfeatures, visualrule)
+			local originalrule = {option,conds,ids,tags}
+			local visualrule = copyrule(originalrule)
+			if (shownrule == nil) then
+				table.insert(visualfeatures, visualrule)
+			else
+				table.insert(visualfeatures, shownrule)
+			end
+			if visualonly then
+				return
+			end
 		end
 
 		-- @mods(this) - prevent populating the featureindex with pnoun rules. Each pnoun isn't an object, but a reference to an object.
@@ -1696,7 +1995,7 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 		
 		local groupcond = false
 		
-		if (string.sub(target, 1, 5) == "group") or (string.sub(effect, 1, 5) == "group") or (string.sub(target, 1, 9) == "not group") or (string.sub(effect, 1, 9) == "not group") then
+		if (string.sub(target, 1, 5) == "group") or (string.sub(effect, 1, 5) == "group" and (verb ~= "write" or not foundtag)) or (string.sub(target, 1, 9) == "not group") or (string.sub(effect, 1, 9) == "not group") then
 			groupcond = true
 		end
 		
@@ -1784,6 +2083,7 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 							elseif (b == "not all") then
 								table.insert(newconds, "empty")
 								table.insert(newconds, "text")
+								table.insert(newconds, "glyph")
 							end
 							
 							if (string.sub(b, 1, 5) == "group") or (string.sub(b, 1, 9) == "not group") then
@@ -1815,6 +2115,51 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 		
 		if (targetnot == "not ") and (objectlist[targetnot_] ~= nil) and (string.sub(targetnot_, 1, 5) ~= "group") and (string.sub(effect, 1, 5) ~= "group") and (string.sub(effect, 1, 9) ~= "not group") or (((string.sub(effect, 1, 5) == "group") or (string.sub(effect, 1, 9) == "not group")) and (targetnot_ == "all")) then
 			if (targetnot_ ~= "all") then
+				if (string.sub(targetnot_, 1, 5) == "text_") then
+					for i,mat in pairs(fullunitlist) do
+						if (i ~= targetnot_) and (string.sub(i, 1, 5) == "text_") then
+							local rule = {i,verb,effect}
+							local newconds = {}
+							for a,b in ipairs(conds) do
+								table.insert(newconds, b)
+							end
+							addoption(rule,newconds,ids,false,{effect,#featureindex[effect]},tags)
+						end
+					end
+				elseif (string.sub(targetnot_, 1, 6) == "glyph_") then
+					for i,mat in pairs(fullunitlist) do
+						if (i ~= targetnot_) and (string.sub(i, 1, 6) == "glyph_") then
+							local rule = {i,verb,effect}
+							local newconds = {}
+							for a,b in ipairs(conds) do
+								table.insert(newconds, b)
+							end
+							addoption(rule,newconds,ids,false,{effect,#featureindex[effect]},tags)
+						end
+					end
+				elseif string.sub(targetnot_, 1, 4) == "meta" then
+					local level = string.sub(targetnot_, 5)
+					if tonumber(level) == nil then
+						level = -2
+					end
+					local donelevel = {}
+					donelevel[tonumber(level)] = 1
+					if not metatext_includenoun then
+						donelevel[-1] = 1
+					end
+					for i,mat in pairs(fullunitlist) do
+						local metalevel = getmetalevel(i)
+						if donelevel[metalevel] == nil and (findnoun(i,nil,true) == false) then
+							donelevel[metalevel] = 1
+							local rule = {"meta"..metalevel,verb,effect}
+							local newconds = {}
+							for a,b in ipairs(conds) do
+								table.insert(newconds, b)
+							end
+							addoption(rule,newconds,ids,false,{effect,#featureindex[effect]},tags)
+						end
+					end
+				else
 				for i,mat in pairs(objectlist) do
 					if (i ~= targetnot_) and (findnoun(i) == false) then
 						local rule = {i,verb,effect}
@@ -1825,8 +2170,9 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 						addoption(rule,newconds,ids,false,{effect,#featureindex[effect]},tags)
 					end
 				end
+				end
 			else
-				local mats = {"empty","text"}
+				local mats = {"empty","text", "glyph"}
 				
 				for m,i in pairs(mats) do
 					local rule = {i,verb,effect}
@@ -1836,6 +2182,433 @@ function addoption(option,conds_,ids,visible,notrule,tags_)
 					end
 					addoption(rule,newconds,ids,false,{effect,#featureindex[effect]},tags)
 				end
+			end
+		end
+		if target == "text" and fullunitlist ~= nil then
+			for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+				if (string.sub(a, 1, 5) == "text_") then
+					local newconds = {}
+					local newtags = {}
+					local stop = false
+
+					for c,d in ipairs(conds) do
+						table.insert(newconds, d)
+					end
+
+					for c,d in ipairs(tags) do
+						table.insert(newtags, d)
+					end
+
+					table.insert(newtags, "text")
+
+					local newword1 = a
+					local newword2 = verb
+					local newword3 = effect
+					if objectlist[a] == nil then
+						objectlist[a] = 1
+					end
+					if newword3 == "text" then
+						if newword2 == "is" then
+							newword3 = newword1
+						elseif newword2 == "has" or newword2 == "become" then
+							newword3 = "text_text"
+						elseif newword2 == "make" then
+							stop = true
+						end
+					elseif newword3 == "not text" then
+						if newword2 == "is" then
+							newword3 = "not " .. newword1
+						elseif newword2 == "has" or newword2 == "become" then
+							newword3 = "not text_text"
+						elseif newword2 == "make" then
+							stop = true
+						end
+					elseif string.sub(newword3,1,5) == "group" or string.sub(newword3,1,9) == "not group" then
+						if newword2 == "become" or newword2 == "has" or newword2 == "make" then
+							stop = true
+						end
+					end
+
+					local newrule = {newword1, newword2, newword3}
+					if not stop then
+						addoption(newrule,newconds,ids,false,nil,newtags)
+					end
+				end
+			end
+			if (verb == "mimic" or verb == "perform") and (effect == "text" or string.sub(effect,1,4) == "meta") then --@mods (metatext x extrem)
+				for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+					if (string.sub(a, 1, 5) == "text_") then
+						local stop = false
+						local newconds = {}
+						local newtags = {}
+
+						for c,d in ipairs(conds) do
+							table.insert(newconds, d)
+						end
+
+						for c,d in ipairs(tags) do
+							if d == "dontadd" then
+								stop = true
+								break
+							end
+							table.insert(newtags, d)
+						end
+
+						table.insert(newtags, "visualmimic")
+						table.insert(newtags, "verbtext")
+
+						local newword1 = target
+						local newword2 = verb
+						local newword3 = a
+
+						local newrule = {newword1, newword2, newword3}
+						if not stop then
+							addoption(newrule,newconds,ids,false,nil,newtags)
+						end
+					end
+				end
+			end
+		elseif target == "glyph" and fullunitlist ~= nil then
+			for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+				if (string.sub(a, 1, 6) == "glyph_") then
+					local newconds = {}
+					local newtags = {}
+					local stop = false
+
+					for c,d in ipairs(conds) do
+						table.insert(newconds, d)
+					end
+
+					for c,d in ipairs(tags) do
+						table.insert(newtags, d)
+					end
+
+					table.insert(newtags, "glyph")
+
+					local newword1 = a
+					local newword2 = verb
+					local newword3 = effect
+					if objectlist[a] == nil then
+						objectlist[a] = 1
+					end
+					if newword3 == "glyph" then
+						if newword2 == "is" then
+							newword3 = newword1
+						elseif newword2 == "has" or newword2 == "become" then
+							newword3 = "glyph_glyph"
+						elseif newword2 == "make" then
+							stop = true
+						end
+					elseif newword3 == "not glyph" then
+						if newword2 == "is" then
+							newword3 = "not " .. newword1
+						elseif newword2 == "has" or newword2 == "become" then
+							newword3 = "not glyph_glyph"
+						elseif newword2 == "make" then
+							stop = true
+						end
+					elseif string.sub(newword3,1,5) == "group" or string.sub(newword3,1,9) == "not group" then
+						if newword2 == "become" or newword2 == "has" or newword2 == "make" then
+							stop = true
+						end
+					end
+
+					local newrule = {newword1, newword2, newword3}
+					if not stop then
+						addoption(newrule,newconds,ids,false,nil,newtags)
+					end
+				end
+			end
+			if (verb == "mimic" or verb == "perform") and (effect == "glyph") then
+				for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+					if (string.sub(a, 1, 6) == "glyph_") then
+						local stop = false
+						local newconds = {}
+						local newtags = {}
+
+						for c,d in ipairs(conds) do
+							table.insert(newconds, d)
+						end
+
+						for c,d in ipairs(tags) do
+							if d == "dontadd" then
+								stop = true
+								break
+							end
+							table.insert(newtags, d)
+						end
+
+						table.insert(newtags, "visualmimic")
+						table.insert(newtags, "verbglyph")
+
+						local newword1 = target
+						local newword2 = verb
+						local newword3 = a
+
+						local newrule = {newword1, newword2, newword3}
+						if not stop then
+							addoption(newrule,newconds,ids,false,nil,newtags)
+						end
+					end
+				end
+			end
+		elseif string.sub(target,1,4) == "meta" and fullunitlist ~= nil then
+			local level = string.sub(target,5)
+			if tonumber(level) ~= nil and tonumber(level) >= -1 then
+				for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+					local metalevel = getmetalevel(a)
+					if metalevel == tonumber(level) and (findnoun(a,nil,true) == false) then
+						local newconds = {}
+						local newtags = {}
+						local stop = false
+
+						for c,d in ipairs(conds) do
+							table.insert(newconds, d)
+						end
+
+						for c,d in ipairs(tags) do
+							table.insert(newtags, d)
+						end
+
+						table.insert(newtags, target)
+
+						local newword1 = a
+						local newword2 = verb
+						local newword3 = effect
+						if newword3 == "text" and metalevel >= 0 then
+							if newword2 == "is" then
+								newword3 = newword1
+							elseif newword2 == "has" or newword2 == "become" then
+								newword3 = "text_text"
+							elseif newword2 == "make" then
+								stop = true
+							end
+						elseif newword3 == "not text" and metalevel >= 0 then
+							if newword2 == "is" then
+								newword3 = "not " .. newword1
+							elseif newword2 == "has" or newword2 == "become" then
+								newword3 = "not text_text"
+							elseif newword2 == "make" then
+								stop = true
+							end
+						elseif newword3 == target then
+							if newword2 == "is" or newword2 == "become" or newword2 == "has" then
+								newword3 = newword1
+							elseif newword2 == "make" then
+								stop = true
+							end
+						elseif newword3 == "not " .. target then
+							if newword2 == "is" or newword2 == "become" or newword2 == "has" then
+								newword3 = "not " .. newword1
+							elseif newword2 == "make" then
+								stop = true
+							end
+						elseif string.sub(newword3,1,5) == "group" or string.sub(newword3,1,9) == "not group" then
+							if newword2 == "become" or newword2 == "has" or newword2 == "make" then
+								stop = true
+							end
+						end
+
+						local newrule = {newword1, newword2, newword3}
+						if not stop then
+							addoption(newrule,newconds,ids,false,nil,newtags)
+						end
+					end
+				end
+			end
+			if (verb == "mimic" or verb == "perform") and (effect == "text" or string.sub(effect,1,4) == "meta") then
+				if tonumber(level) ~= nil and tonumber(level) >= -1 then
+					for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+						local metalevel = getmetalevel(a)
+						if metalevel == tonumber(level) and (findnoun(a,nil,true) == false) then
+							local newconds = {}
+							local newtags = {}
+							local stop = false
+
+							for c,d in ipairs(conds) do
+								table.insert(newconds, d)
+							end
+
+							for c,d in ipairs(tags) do
+								if d == "dontadd" then
+									stop = true
+									break
+								end
+								table.insert(newtags, d)
+							end
+
+							table.insert(newtags, "visualmimic")
+							table.insert(newtags, "verbtext")
+							table.insert(newtags, "verbmeta" .. level)
+
+							local newword1 = target
+							local newword2 = verb
+							local newword3 = a
+
+							local newrule = {newword1, newword2, newword3}
+							if not stop then
+								addoption(newrule,newconds,ids,false,nil,newtags)
+							end
+						end
+					end
+				end
+				if effect ~= "text" then
+					local newconds = {}
+					local newtags = {}
+
+					for c,d in ipairs(conds) do
+						table.insert(newconds, d)
+					end
+
+					for c,d in ipairs(tags) do
+						table.insert(newtags, d)
+					end
+
+					table.insert(newtags, "visualmimic")
+					table.insert(newtags, "dontadd")
+					table.insert(newtags, "verbtext")
+					table.insert(newtags, "verbmeta" .. level)
+
+					local newword1 = target
+					local newword2 = verb
+					local newword3 = "text"
+
+					local newrule = {newword1, newword2, newword3}
+					addoption(newrule,newconds,ids,false,nil,newtags)
+				end
+			end
+		elseif (effect == "text" or effect == "not text") and (targetnot ~= "not ") and verb ~= "is" and verb ~= "become" and verb ~= "make" and verb ~= "has" and verb ~= "write" then
+			for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+				if (string.sub(a, 1, 5) == "text_") then
+					local stop = false
+					local newconds = {}
+					local newtags = {}
+
+					for c,d in ipairs(conds) do
+						table.insert(newconds, d)
+					end
+
+					for c,d in ipairs(tags) do
+						if d == "dontadd" then
+							stop = true
+							break
+						end
+						table.insert(newtags, d)
+					end
+
+					table.insert(newtags, "verbtext")
+
+					local newword1 = target
+					local newword2 = verb
+					local newword3 = a
+					if effect == "not text" then
+						newword3 = "not " .. a
+					end
+
+					local newrule = {newword1, newword2, newword3}
+					if not stop then
+						addoption(newrule,newconds,ids,false,nil,newtags)
+					end
+				end
+			end
+		elseif (effect == "glyph" or effect == "not glyph") and (targetnot ~= "not ") and verb ~= "is" and verb ~= "become" and verb ~= "make" and verb ~= "has" and verb ~= "write" then
+			for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+				if (string.sub(a, 1, 6) == "glyph_") then
+					local stop = false
+					local newconds = {}
+					local newtags = {}
+
+					for c,d in ipairs(conds) do
+						table.insert(newconds, d)
+					end
+
+					for c,d in ipairs(tags) do
+						if d == "dontadd" then
+							stop = true
+							break
+						end
+						table.insert(newtags, d)
+					end
+
+					table.insert(newtags, "verbglyph")
+
+					local newword1 = target
+					local newword2 = verb
+					local newword3 = a
+					if effect == "not glyph" then
+						newword3 = "not " .. a
+					end
+
+					local newrule = {newword1, newword2, newword3}
+					if not stop then
+						addoption(newrule,newconds,ids,false,nil,newtags)
+					end
+				end
+			end
+		elseif ((string.sub(effect,1,4) == "meta" or string.sub(effect,1,8) == "not meta")) and (targetnot ~= "not ") and verb ~= "is" and verb ~= "become" and verb ~= "make" and verb ~= "has" and verb ~= "write" then
+			local isnot = (string.sub(effect,1,8) == "not meta")
+			local level = string.sub(effect,5)
+			if isnot then
+				level = string.sub(effect,9)
+			end
+			if tonumber(level) ~= nil and tonumber(level) >= -1 then
+				for a,b in pairs(fullunitlist) do -- fullunitlist contains all units, is new
+					local metalevel = getmetalevel(a)
+					if metalevel == tonumber(level) and (findnoun(a,nil,true) == false) then
+						local newconds = {}
+						local newtags = {}
+
+						for c,d in ipairs(conds) do
+							table.insert(newconds, d)
+						end
+
+						for c,d in ipairs(tags) do
+							table.insert(newtags, d)
+						end
+
+						table.insert(newtags, "verbtext")
+						table.insert(newtags, "verbmeta" .. level)
+
+						local newword1 = target
+						local newword2 = verb
+						local newword3 = a
+						if objectlist[a] == nil then
+							objectlist[a] = 1
+						end
+						if isnot then
+							newword3 = "not " .. a
+						end
+
+						local newrule = {newword1, newword2, newword3}
+						addoption(newrule,newconds,ids,false,nil,newtags)
+					end
+				end
+			end
+			if (verb == "mimic" or verb == "perform") and isnot == false then
+				local newconds = {}
+				local newtags = {}
+
+				for c,d in ipairs(conds) do
+					table.insert(newconds, d)
+				end
+
+				for c,d in ipairs(tags) do
+					table.insert(newtags, d)
+				end
+
+				table.insert(newtags, "dontadd")
+				table.insert(newtags, "verbtext")
+				table.insert(newtags, "verbmeta" .. level)
+
+				local newword1 = target
+				local newword2 = verb
+				local newword3 = "text"
+				if fullunitlist["text"] == nil then
+					fullunitlist["text"] = 1
+				end
+
+				local newrule = {newword1, newword2, newword3}
+				addoption(newrule,newconds,ids,false,nil,newtags)
 			end
 		end
 	end
@@ -1882,11 +2655,15 @@ function code(alreadyrun_)
 		do_mod_hook("rule_update",{alreadyrun})
 		
 		if (HACK_INFINITY < 200) then
+			if metatext_textisword then
+				addbaserule("text","is","word")
+			end
 			local checkthese = {}
 			local wordidentifier = ""
 			local echoidentifier = ""
 			wordunits,wordidentifier,wordrelatedunits = findwordunits()
 			echounits,echoidentifier,echorelatedunits = ws_findechounits()
+			symbolunits,symbolidentifier,symbolrelatedunits = findsymbolunits()
 			local wordunitresult = {}
 			local echounitresult = {}
 			
@@ -1918,16 +2695,18 @@ function code(alreadyrun_)
 			visualfeatures = {}
 			notfeatures = {}
 			groupfeatures = {}
-			
+
 			pf_rule_metadata_index:reset()
-			
+
 			local firstwords = {}
 			local alreadyused = {}
 
 			do_mod_hook("rule_baserules")
-
 			for i,v in ipairs(baserulelist) do
 				addbaserule(v[1],v[2],v[3],v[4])
+			end
+			if metatext_textisword then
+				addbaserule("text","is","word")
 			end
 
 			--add persistent rules to base rules
@@ -1946,11 +2725,15 @@ function code(alreadyrun_)
 			
 			if (#codeunits > 0) then
 				for i,v in ipairs(codeunits) do
+					if metatext_textisword then
+						setcolour(v)
+					else
 					table.insert(checkthese, v)
 				end
 			end
-		
-			if (#checkthese > 0) or (#letterunits > 0) then
+			end
+			
+			if (#checkthese > 0) or (#letterunits > 0) or (#glyphunits > 0) then
 				for iid,unitid in ipairs(checkthese) do
 					local unit = mmf.newObject(unitid)
 					local x,y = unit.values[XPOS],unit.values[YPOS]
@@ -1990,7 +2773,11 @@ function code(alreadyrun_)
 							if (#hm == 0) and (#hm2 > 0) then
 								--MF_alert("Added " .. unit.strings[UNITNAME] .. " to firstwords, dir " .. tostring(i))
 								
-								table.insert(firstwords, {{unitid}, i, 1, unit.strings[UNITNAME], unit.values[TYPE], {}})
+								if not isglyph(unit) then	
+									table.insert(firstwords, {{unitid}, i, 1, unit.strings[UNITNAME], unit.values[TYPE], {}})
+								else
+									table.insert(firstwords, {{unitid}, i, 1, "glyph", 0, {}})
+								end
 								
 								if (alreadyused[tileid] == nil) then
 									alreadyused[tileid] = {}
@@ -2044,6 +2831,8 @@ function code(alreadyrun_)
 				if BRANCHING_TEXT_LOGGING then
 					print("<<<<<<<<<<<<<start>")
 				end
+
+				local check = doglyphs(symbolunits)
 				docode(firstwords,wordunits)
 				if BRANCHING_TEXT_LOGGING then
 					print("<<<<<<<<<<<<<end>")
@@ -2055,15 +2844,36 @@ function code(alreadyrun_)
 				getallofflines()
 				playrulesound = postrules(alreadyrun)
 				updatecode = 0
-				
+
+				if check == "stop" then
+					return
+				end
+
 				local newwordunits,newwordidentifier,wordrelatedunits = findwordunits()
 				local stable_state_updated = update_stable_state(alreadyrun)
 				local _,newechoidentifier,echorelatedunits = ws_findechounits()
+				local newsymbolunits,newsymbolidentifier,newsymbolrelatedunits = findsymbolunits()
 				
 				--MF_alert("ID comparison: " .. newwordidentifier .. " - " .. wordidentifier)
 				
 				--@mods(stable) - handles the case where this run of code() caused the stablestate to update. In this case, rerun code()
 				if (newwordidentifier ~= wordidentifier) or (newechoidentifier ~= echoidentifier) or (stable_state_updated) then
+					updatecode = 1
+					code(true)
+				elseif (newsymbolidentifier ~= symbolidentifier) then
+					updatecode = 1
+					code(true)
+				else
+					--domaprotation()
+				end
+			elseif metatext_textisword then
+				updatecode = 0
+
+				local newwordunits,newwordidentifier,wordrelatedunits = findwordunits()
+
+				--MF_alert("ID comparison: " .. newwordidentifier .. " - " .. wordidentifier)
+
+				if (newwordidentifier ~= wordidentifier) then
 					updatecode = 1
 					code(true)
 				else
@@ -2132,7 +2942,7 @@ function findwordunits()
 			local subid = ""
 			
 			if (rule[2] == "is") then
-				if (objectlist[name] ~= nil) and (name ~= "text") and (alreadydone[name] == nil) then
+				if ((fullunitlist[name] ~= nil) or ((name == "glyph") and (#glyphunits > -1))) and (findnoun(name,nlist.short,true) == false) and (metatext_textisword or string.sub(name,1,5) ~= "text_") and (alreadydone[name] == nil) then
 					-- @mods(stable) originally it was "findall({name, {}})". But we are assuming that passing nil conds = don't test conditions.
 					local these = findall({name})
 					alreadydone[name] = 1
@@ -2140,6 +2950,12 @@ function findwordunits()
 					if (#these > 0) then
 						for a,b in ipairs(these) do
 							local bunit = mmf.newObject(b)
+							local unitname = ""
+							if name == "text" then
+								unitname = bunit.strings[UNITNAME]
+							else
+								unitname = name
+							end
 							local valid = true
 							
 							if (featureindex["broken"] ~= nil) then
@@ -2150,7 +2966,7 @@ function findwordunits()
 							
 							if valid then
 								table.insert(result, {b, conds})
-								subid = subid .. name
+								subid = subid .. unitname
 								-- LISÄÄ TÄHÄN LISÄÄ DATAA
 							end
 						end
@@ -2221,23 +3037,27 @@ function findwordunits()
 				local ids = v[3]
 				local tags = v[4]
 				
-				if (rule[1] == b) or (rule[1] == "all") or ((rule[1] ~= b) and (string.sub(rule[1], 1, 3) == "not")) then
+				-- Gotta change this to prevent some false infinite loops
+				if (rule[1] == b) or ((rule[1] == "glyph") and (string.sub(b, 1, 6) == "glyph_")) or (rule[1] == "all" and string.sub(b,1,5) ~= "text_") or ((rule[1] ~= b) and (string.sub(rule[1], 1, 4) == "not ") and string.sub(b,1,5) ~= "text_") or ((rule[1] == "text" or rule[1] == "not all") and string.sub(b,1,5) == "text_") or ((rule[1] ~= b) and (string.sub(rule[1], 1, 9) == "not text_") and string.sub(b,1,5) == "text_")
+				or ("meta"..getmetalevel(b) == rule[1]) or ("not meta"..getmetalevel(b) ~= rule[1] and (metatext_includenoun or string.sub(b,1,5) == "text_")) then
 					for c,g in ipairs(ids) do
 						for a,d in ipairs(g) do
 							local idunit = mmf.newObject(d)
 							
 							-- Tässä pitäisi testata myös Group!
-							if (idunit.strings[UNITNAME] == "text_" .. rule[1]) or (rule[1] == "all") then
+							if (idunit.strings[UNITNAME] == "text_" .. rule[1]) or ((idunit.strings[UNITNAME] == "glyph_" .. rule[1]) and (tags[1] == "glyphrule")) or ((idunit.strings[UNITNAME] == rule[1]) and (tags[1] == "glyphrule")) or ((rule[1] == "all") and (rule[1] ~= "glyph")) then
 								--MF_alert("Matching objects - found")
 								found = true
 							elseif (string.sub(rule[1], 1, 5) == "group") then
 								--MF_alert("Group - found")
 								found = true
-							elseif (rule[1] ~= checkname) and (string.sub(rule[1], 1, 3) == "not") then
+							elseif (rule[1] ~= checkname) and (((string.sub(rule[1], 1, 3) == "not") and (rule[1] ~= "glyph")) or ((rule[1] == "not all") and (rule[1] == "glyph"))) then
 								--MF_alert("Not Object - found")
 								found = true
 							elseif idunit.strings[UNITNAME] == "text_this" then
 								-- Note: this could match any "this is word" or "not this is word" rules. But we handle the raycast buisness in testcond
+								found = true
+							elseif (idunit.strings[UNITNAME] == "text_text_") then
 								found = true
 							end
 						end
@@ -2291,6 +3111,23 @@ function postrules(alreadyrun_)
 		@mods(stable) - Override reason: "X is not Y" and "X is X" directly modifies rules in the featureindex. We don't want that to happen for stablerules 
 				(look for instances of has_stable_tag() )
 	 ]]
+
+	local scary = findfeature(nil, "is", "scary") --@mods (extrem)
+	local scared = findfeature(nil, "is", "scared")
+	if scary ~= nil and scared ~= nil then
+		for a, b in ipairs(scary) do
+			for c, d in ipairs(scared) do
+				local ids = b[3]
+				if d[3] ~= nil then
+					for e, f in ipairs(d[3]) do
+						table.insert(ids, f)
+					end
+				end
+				addoption({ d[1][1], "fear", b[1][1] }, {}, ids, false, {})
+			end
+		end
+	end
+
 	local protects = {}
 	local newruleids = {}
 	local ruleeffectlimiter = {}
@@ -2343,7 +3180,8 @@ function postrules(alreadyrun_)
 						for c,b in ipairs(d) do
 							if (b ~= 0) then
 								local bunit = mmf.newObject(b)
-								if (bunit.strings[UNITTYPE] == "text") then
+								
+								if (bunit.strings[UNITTYPE] == "text") or (string.sub(bunit.strings[UNITNAME], 1, 6) == "glyph_") then
 									bunit.active = true
 									setcolour(b,"active")
 								end
@@ -2413,13 +3251,16 @@ function postrules(alreadyrun_)
 				-- There cannot be a crisscross between normal and stable features. - 3/6/22
 				-- Update: we allow one exception. If "X is not stable" is a stablerule, it should cancel out the normal rule "X is stable"
 				local not_rule_has_stable_tag = has_stable_tag(tags)
+				if (verb == "is") and (neweffect == "glyph") and (featureindex["inscribe"] ~= nil) then
+					table.insert(targetlists, "inscribe")
+				end
 				
 				for e,g in ipairs(targetlists) do
 					for a,b in ipairs(featureindex[g]) do
 						local same = comparerules(newbaserule,b[1])
 						local target_rule_has_stable_tag = has_stable_tag(b[4])
 						
-						if (same or ((g == "write") and (target == b[1][1]) and (b[1][2] == "write"))) and (not_rule_has_stable_tag == target_rule_has_stable_tag or newbaserule == "stable") then
+						if (same or ((g == "inscribe") and (target == b[1][1]) and (b[1][2] == "inscribe")) or ((g == "write") and (target == b[1][1]) and (b[1][2] == "write")) or ((((neweffect == "text") and (string.sub(b[1][3], 1, 5)=="text_")) or ((neweffect == "glyph") and (string.sub(b[1][3], 1, 6)=="glyph_"))) and (target == b[1][1]) and (verb == b[1][2]))) and (not_rule_has_stable_tag == target_rule_has_stable_tag or newbaserule == "stable") then
 							--MF_alert(rule[1] .. ", " .. rule[2] .. ", " .. neweffect .. ": " .. b[1][1] .. ", " .. b[1][2] .. ", " .. b[1][3])
 							local theseconds = b[2]
 							
@@ -2525,7 +3366,20 @@ function postrules(alreadyrun_)
 
 						local target_rule_has_stable_tag = has_stable_tag(rules[4])
 						
-						if (targetrule[1] == target) and (((targetrule[2] == "is") and (target ~= object)) or ((targetrule[2] == "write") and (string.sub(object, 1, 4) ~= "not "))) and ((getmat(object) ~= nil) or (object == "revert") or ((targetrule[2] == "write") and (string.sub(object, 1, 4) ~= "not "))) and (string.sub(object, 1, 5) ~= "group") and (protect_rule_has_stable_tag == target_rule_has_stable_tag) then
+						if (targetrule[1] == target) --@Merge: omg beeeeg if block
+						  and (((targetrule[2] == "is") and (target ~= object)) 
+						  	  or ((targetrule[2] == "inscribe") and (string.sub(object, 1, 4) ~= "not "))
+						  	  or ((targetrule[2] == "write") and (string.sub(object, 1, 4) ~= "not ")))
+						  and ((getmat(object) ~= nil)
+						  	  or (object == "revert")
+						  	  or ((targetrule[2] == "inscribe") and (string.sub(object, 1, 4) ~= "not "))
+						  	  or ((targetrule[2] == "write") and (string.sub(object, 1, 4) ~= "not "))
+							  or (object == "meta")
+							  or (object == "unmeta"))
+						  and (string.sub(object, 1, 5) ~= "group") 
+						  	  and (protect_rule_has_stable_tag == target_rule_has_stable_tag)
+						  then
+								
 							if (#newconds > 0) then
 								if (newconds[1] == "never") then
 									targetconds = {}
@@ -2651,14 +3505,30 @@ function subrules()
 		end
 	end
 	
-	if (featureindex["mimic"] ~= nil) then
-		for i,rules in ipairs(featureindex["mimic"]) do
+	if (featureindex["mimic"] ~= nil) or (featureindex["perform"] ~= nil) then
+		local mimiclikes = {} --@mods(extrem)
+
+		if featureindex["mimic"] ~= nil then
+			for a, rules in ipairs(featureindex["mimic"]) do
+				table.insert(mimiclikes, rules)
+			end
+		elseif featureindex["perform"] ~= nil then
+			for a, rules in ipairs(featureindex["perform"]) do
+				table.insert(mimiclikes, rules)
+			end
+		end
+
+		for i, rules in ipairs(mimiclikes) do
 			local rule = rules[1]
 			local conds = rules[2]
 			local tags = rules[4]
 			
-			--@mods(stable) - 
-			if (rule[2] == "mimic") then
+			--@mods(stable), @mods(extrem)
+			if (rule[2] == "act") then
+				rule[2] = "is"
+			end
+
+			if (rule[2] == "mimic") or (rule[2] == "perform") then
 				local object = rule[1]
 				local target = rule[3]
 				
@@ -2682,12 +3552,37 @@ function subrules()
 	
 	local limiter = 0
 	local limit = 250
-	
-	if (featureindex["mimic"] ~= nil) then
-		for i,rules in ipairs(featureindex["mimic"]) do
+
+	if (featureindex["mimic"] ~= nil) or (featureindex["perform"] ~= nil) then
+		--@mods(extrem)
+		local mimiclikes = {}
+
+		if featureindex["mimic"] ~= nil then
+			for a, rules in ipairs(featureindex["mimic"]) do
+				table.insert(mimiclikes, rules)
+			end
+		elseif featureindex["perform"] ~= nil then
+			for a, rules in ipairs(featureindex["perform"]) do
+				table.insert(mimiclikes, rules)
+			end
+		end
+
+		for i, rules in ipairs(mimiclikes) do
+			local visualonly = false
 			local rule = rules[1]
 			local conds = rules[2]
 			local tags = rules[4]
+			local visual = true
+			local verbpair = {}
+			for i,v in ipairs(tags) do
+				if v == "text" or string.sub(v,1,4) == "meta" then --there's some metatext stuff here, hopefully won't cause problems
+					visual = false
+				elseif v == "visualmimic" then
+					visualonly = true
+				elseif string.sub(v,1,4) == "verb" then
+					verbpair[string.sub(v,5)] = 1
+				end
+			end
 
 			--[[ 
 				@mods(THIS): basegame MIMIC doesn't copy the text ids of "X mimic Y" to its subrules.
@@ -2697,14 +3592,21 @@ function subrules()
 				- But since the unitid of THIS wasn't copied over to the subrule, we cannot process "THIS is blue"
 			]]
 			local mimic_ids = rules[3]
-			
-			if (rule[2] == "mimic" ) then
+
+			if (rule[2] == "act") then
+				rule[2] = "is"
+			end
+
+			if (rule[2] == "mimic") or (rule[2] == "perform") then
 				local object = rule[1]
 				local target = rule[3]
 				local mprotects = mimicprotects[object] or {}
 				local extraconds = {}
 				
 				local valid = true
+				if object == "text" or string.sub(object,1,4) == "meta" then
+					visualonly = true
+				end
 				
 				if (string.sub(target, 1, 4) == "not ") then
 					valid = false
@@ -2729,7 +3631,7 @@ function subrules()
 				local copythese = {}
 				
 				if valid then
-					if (getmat(object) ~= nil) and (getmat(target) ~= nil) then
+					if (getmat(object,true) ~= nil) and (getmat(target,true) ~= nil) then
 						if (featureindex[target] ~= nil) then
 							copythese = featureindex[target]
 						end
@@ -2743,12 +3645,17 @@ function subrules()
 						
 						local valid = true
 						for c,d in ipairs(ttags) do
-							if (d == "mimic") then
+							if (d == "mimic") or verbpair[d] ~= nil or (string.sub(d,1,4) == "verb") then
 								valid = false
+								break
 							end
 						end
-						
-						if (trule[1] == target) and (trule[2] ~= "mimic") and valid then
+
+						if (rule[2] == "perform") and (trule[2] ~= "act") then
+							valid = false
+						end
+
+						if (trule[1] == target) and (trule[2] ~= "mimic") and (trule[2] ~= "perform") and valid then
 							local newconds = {}
 							local newids = {}
 							local newtags = {}
@@ -2806,15 +3713,19 @@ function subrules()
 							local newword1 = object
 							local newword2 = trule[2]
 							local newword3 = trule[3]
-							
+
+							if (newword2 == "act") then
+								newword2 = "is"
+							end
+
 							local newrule = {newword1, newword2, newword3}
 							
 							limiter = limiter + 1
 
 							if has_stable_cond then
-								addoption(newrule,newconds,newids,false,nil,newtags)
+								addoption(newrule,newconds,newids,false,nil,newtags,visualonly)
 							else
-								addoption(newrule,newconds,newids,true,nil,newtags)
+								addoption(newrule,newconds,newids,visual,nil,newtags,visualonly)
 							end
 
 							if STABLE_LOGGING then
@@ -2840,6 +3751,910 @@ function subrules()
 								MF_alert("Level destroyed - mimic happened too many times!")
 								destroylevel("toocomplex")
 								return
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+function addbaserule(rule1,rule2,rule3,conds_,iskept_)
+	local conds = conds_ or {}
+	local rule = {rule1,rule2,rule3}
+	local tag = {"base"}
+	if iskept_ then tag = {"keep","base"} end
+
+	addoption(rule,conds,{},false,nil,tag)
+end
+
+function grouprules()
+	groupmembers = {}
+	local groupmembers_quick = {}
+
+	local isgroup = {}
+	local isnotgroup = {}
+	local xgroup = {}
+	local xnotgroup = {}
+	local groupx = {}
+	local notgroupx = {}
+	local groupxgroup = {}
+	local groupxgroup_diffname = {}
+	local groupisnotgroup = {}
+	local notgroupisgroup = {}
+
+	local evilrecursion = false
+	local notgroupisgroup_diffname = {}
+
+	local memberships = {}
+
+	local combined = {}
+
+	for i,v in ipairs(groupfeatures) do
+		local rule = v[1]
+		local conds = v[2]
+
+		local type_isgroup = false
+		local type_isnotgroup = false
+		local type_xgroup = false
+		local type_xnotgroup = false
+		local type_groupx = false
+		local type_notgroupx = false
+		local type_recursive = false
+
+		local groupname1 = ""
+		local groupname2 = ""
+
+		if (string.sub(rule[1], 1, 5) == "group") then
+			type_groupx = true
+			groupname1 = rule[1]
+		elseif (string.sub(rule[1], 1, 9) == "not group") then
+			type_notgroupx = true
+			groupname1 = string.sub(rule[1], 5)
+		end
+
+		if (string.sub(rule[3], 1, 5) == "group") then
+			type_xgroup = true
+			groupname2 = rule[3]
+
+			if (rule[2] == "is") then
+				type_isgroup = true
+			end
+		elseif (string.sub(rule[3], 1, 9) == "not group") then
+			type_xnotgroup = true
+			groupname2 = string.sub(rule[3], 5)
+
+			if (rule[2] == "is") then
+				type_isnotgroup = true
+			end
+		end
+
+		if (conds ~= nil) and (#conds > 0) then
+			for a,cond in ipairs(conds) do
+				local params = cond[2] or {}
+				for c,param in ipairs(params) do
+					if (string.sub(param, 1, 5) == "group") or (string.sub(param, 1, 9) == "not group") then
+						type_recursive = true
+						break
+					end
+				end
+			end
+		end
+
+		if type_isgroup then
+			if (type_groupx == false) and (type_notgroupx == false) then
+				table.insert(isgroup, {v, type_recursive})
+
+				if (memberships[rule[3]] == nil) then
+					memberships[rule[3]] = {}
+				end
+
+				if (memberships[rule[3]][rule[1]] == nil) then
+					memberships[rule[3]][rule[1]] = {}
+				end
+
+				table.insert(memberships[rule[3]][rule[1]], {v, type_recursive})
+			elseif (type_notgroupx == false) then
+				if (groupname1 == groupname2) then
+					table.insert(groupxgroup, {v, type_recursive})
+				else
+					table.insert(groupxgroup_diffname, {v, type_recursive})
+				end
+			else
+				if (groupname1 == groupname2) then
+					table.insert(notgroupisgroup, {v, type_recursive})
+				else
+					evilrecursion = true
+					table.insert(notgroupisgroup_diffname, {v, type_recursive})
+				end
+			end
+		elseif type_xgroup then
+			if (type_groupx == false) and (type_notgroupx == false) then
+				table.insert(xgroup, {v, type_recursive})
+			else
+				table.insert(groupxgroup, {v, type_recursive})
+			end
+		elseif type_isnotgroup then
+			if (type_groupx == false) and (type_notgroupx == false) then
+				if (isnotgroup[rule[1]] == nil) then
+					isnotgroup[rule[1]] = {}
+				end
+
+				table.insert(isnotgroup[rule[1]], {v, type_recursive})
+
+				if (xnotgroup[rule[1]] == nil) then
+					xnotgroup[rule[1]] = {}
+				end
+
+				table.insert(xnotgroup[rule[1]], {v, type_recursive})
+			elseif (type_notgroupx == false) then
+				if (groupname1 == groupname2) then
+					table.insert(groupisnotgroup, {v, type_recursive})
+				else
+					table.insert(groupxgroup_diffname, {v, type_recursive})
+				end
+			else
+				if (groupname1 == groupname2) then
+					table.insert(groupxgroup, {v, type_recursive})
+				else
+					evilrecursion = true
+					table.insert(notgroupisgroup_diffname, {v, type_recursive})
+				end
+			end
+		elseif type_xnotgroup then
+			if (xnotgroup[rule[1]] == nil) then
+				xnotgroup[rule[1]] = {}
+			end
+
+			table.insert(xnotgroup[rule[1]], {v, type_recursive})
+		elseif type_groupx then
+			table.insert(groupx, {v, type_recursive})
+		elseif type_notgroupx then
+			table.insert(notgroupx, {v, type_recursive})
+		end
+	end
+
+	local diffname_done = false
+	local diffname_used = {}
+
+	while (diffname_done == false) do
+		diffname_done = true
+
+		for i,v_ in ipairs(groupxgroup_diffname) do
+			if (diffname_used[i] == nil) then
+				local v = v_[1]
+				local recursion = v_[2] or false
+
+				local rule = v[1]
+				local conds = v[2]
+				local ids = v[3]
+				local tags = v[4]
+
+				local gn1 = rule[1]
+				local gn2 = rule[3]
+
+				local notrule = false
+				if (string.sub(gn2, 1, 4) == "not ") then
+					notrule = true
+				end
+
+				local newconds = {}
+				newconds = copyconds(newconds,conds)
+
+				for a,b_ in ipairs(isgroup) do
+					local b = b_[1]
+					local brec = b_[2] or recursion or false
+					local grule = b[1]
+					local gconds = b[2]
+					local gtags = b[4]
+
+					if (grule[3] == gn1) then
+						diffname_used[i] = 1
+						diffname_done = false
+
+						newconds = copyconds(newconds,gconds)
+
+						local newrule = {grule[1],"is",gn2}
+						local newtags = concatenate(tags,gtags)
+
+						if (notrule == false) then
+							table.insert(isgroup, {{newrule,newconds,ids,newtags}, brec})
+						else
+							if (isnotgroup[grule[1]] == nil) then
+								isnotgroup[grule[1]] = {}
+							end
+
+							table.insert(isnotgroup[grule[1]], {{newrule,newconds,ids,newtags}, brec})
+						end
+					end
+				end
+			end
+		end
+	end
+
+	if evilrecursion then
+		diffname_done = false
+		local evilrec_id = ""
+		local evilrec_id_base = ""
+		local evilrec_memberships_base = {}
+		local evilrec_memberships_quick = {}
+
+		local evilrec_limit = 0
+
+		for i,v in pairs(memberships) do
+			evilrec_id_base = evilrec_id_base .. i
+			for a,b in pairs(v) do
+				evilrec_id_base = evilrec_id_base .. a
+
+				if (evilrec_memberships_quick[i] == nil) then
+					evilrec_memberships_quick[i] = {}
+				end
+
+				evilrec_memberships_quick[i][a] = b
+
+				if (evilrec_memberships_base[i] == nil) then
+					evilrec_memberships_base[i] = {}
+				end
+
+				evilrec_memberships_base[i][a] = b
+			end
+		end
+
+		evilrec_id = evilrec_id_base
+
+		while (diffname_done == false) and (evilrec_limit < 10) do
+			local foundmembers = {}
+			local foundid = evilrec_id_base
+
+			for i,v in pairs(evilrec_memberships_base) do
+				foundid = foundid .. i
+				for a,b in pairs(v) do
+					foundid = foundid .. a
+				end
+			end
+
+			for i,v_ in ipairs(notgroupisgroup_diffname) do
+				local v = v_[1]
+				local recursion = v_[2] or false
+
+				local rule = v[1]
+				local conds = v[2]
+				local ids = v[3]
+				local tags = v[4]
+
+				local notrule = false
+				local gn1 = string.sub(rule[1], 5)
+				local gn2 = rule[3]
+
+				if (string.sub(gn2, 1, 4) == "not ") then
+					notrule = true
+					gn2 = string.sub(gn2, 5)
+				end
+
+				if (foundmembers[gn2] == nil) then
+					foundmembers[gn2] = {}
+				end
+
+				for a,b in pairs(objectlist) do
+					if (findnoun(a) == false) and ((evilrec_memberships_quick[gn1] == nil) or ((evilrec_memberships_quick[gn1] ~= nil) and (evilrec_memberships_quick[gn1][a] == nil))) then
+						if (foundmembers[gn2][a] == nil) then
+							foundmembers[gn2][a] = {}
+						end
+
+						table.insert(foundmembers[gn2][a], {v, recursion})
+					end
+				end
+			end
+
+			for i,v in pairs(foundmembers) do
+				foundid = foundid .. i
+				for a,b in pairs(v) do
+					foundid = foundid .. a
+				end
+			end
+
+			-- MF_alert(foundid .. " == " .. evilrec_id)
+
+			if (foundid == evilrec_id) then
+				diffname_done = true
+
+				for i,v in pairs(foundmembers) do
+					for a,d in pairs(v) do
+						for c,b_ in ipairs(d) do
+							local b = b_[1]
+							local brule = b[1]
+							local rec = b_[2] or false
+
+							local newrule = {a,"is",brule[3]}
+							local newconds = {}
+							newconds = copyconds(newconds,b[2])
+							local newids = concatenate(b[3])
+							local newtags = concatenate(b[4])
+
+							if (string.sub(brule[3], 1, 4) ~= "not ") then
+								table.insert(isgroup, {{newrule,newconds,newids,newtags}, rec})
+							else
+								if (isnotgroup[a] == nil) then
+									isnotgroup[a] = {}
+								end
+
+								table.insert(isnotgroup[a], {{newrule,newconds,newids,newtags}, rec})
+							end
+						end
+					end
+				end
+			else
+				evilrec_memberships_quick = {}
+				evilrec_id = foundid
+
+				for i,v in pairs(evilrec_memberships_base) do
+					evilrec_memberships_quick[i] = {}
+
+					for a,b in pairs(v) do
+						evilrec_memberships_quick[i][a] = b
+					end
+				end
+
+				for i,v in pairs(foundmembers) do
+					evilrec_memberships_quick[i] = {}
+
+					for a,b in pairs(v) do
+						evilrec_memberships_quick[i][a] = b
+					end
+				end
+
+				evilrec_limit = evilrec_limit + 1
+			end
+		end
+
+		if (evilrec_limit >= 10) then
+			HACK_INFINITY = 200
+			destroylevel("infinity")
+			return
+		end
+	end
+
+	memberships = {}
+
+	for i,v_ in ipairs(isgroup) do
+		local v = v_[1]
+		local recursion = v_[2] or false
+
+		local rule = v[1]
+		local conds = v[2]
+		local ids = v[3]
+		local tags = v[4]
+
+		local name_ = rule[1]
+		local namelist = {}
+
+		if (string.sub(name_, 1, 4) ~= "not ") and (metatext_fixquirks or (name_ ~= "text" and string.sub(name_,1,4) ~= "meta")) then
+			namelist = {name_}
+		elseif (name_ ~= "not all") and (metatext_fixquirks or (name_ ~= "text" and string.sub(name_,1,4) ~= "meta")) then
+			if string.sub(name_, 5, 9) == "text_" then --Exceptions for NOT METATEXT and NOT META#
+				for a,b in pairs(fullunitlist) do
+					if (string.sub(a, 1, 5) == "text_") and (a ~= string.sub(name_, 5)) then
+						table.insert(namelist, a)
+					end
+				end
+			elseif string.sub(name_, 5, 8) == "meta" then
+				local level = string.sub(name_, 9)
+				if tonumber(level) == nil then
+					level = -2
+				end
+				for a,b in pairs(fullunitlist) do
+					local metalevel = getmetalevel(a)
+					if metalevel ~= tonumber(level) and (findnoun(a,nil,true) == false) and (metatext_includenoun or metalevel >= 0) then
+						timedmessage(a,0,#namelist)
+						table.insert(namelist, a)
+					end
+				end
+			else
+				for a,b in pairs(objectlist) do
+					if (findnoun(a) == false) and (a ~= string.sub(name_, 5)) then
+						table.insert(namelist, a)
+					end
+				end
+			end
+		end
+
+		for index,name in ipairs(namelist) do
+			local never = false
+
+			local prevents = {}
+
+			if (isnotgroup[name] ~= nil) then
+				for a,b_ in ipairs(isnotgroup[name]) do
+					local b = b_[1]
+					local brule = b[1]
+
+					local grouptype = string.sub(brule[3], 5)
+
+					if (grouptype == rule[3]) then
+						recursion = b_[2] or recursion
+						local pconds,crashy,neverfound = invertconds(b[2])
+
+						if (neverfound == false) then
+							for a,cond in ipairs(pconds) do
+								table.insert(prevents, cond)
+							end
+						else
+							never = true
+							break
+						end
+					end
+				end
+			end
+
+			if (never == false) then
+				local fconds = {}
+				fconds = copyconds(fconds,conds)
+				fconds = copyconds(fconds,prevents)
+
+				table.insert(groupmembers, {name,fconds,rule[3],recursion,v[4]})
+
+				if (groupmembers_quick[name .. "_" .. rule[3]] == nil) then
+					groupmembers_quick[name .. "_" .. rule[3]] = {}
+				end
+
+				table.insert(groupmembers_quick[name .. "_" .. rule[3]], {name,fconds,rule[3],recursion})
+
+				if (memberships[rule[3]] == nil) then
+					memberships[rule[3]] = {}
+				end
+
+				table.insert(memberships[rule[3]], {name,fconds,v[4]})
+
+				for a,b_ in ipairs(groupx) do
+					local b = b_[1]
+					recursion = b_[2] or recursion
+
+					local grule = b[1]
+					local gconds = b[2]
+					local gids = b[3]
+					local gtags = b[4]
+
+					if (grule[1] == rule[3]) then
+						local newrule = {name,grule[2],grule[3]}
+						local newconds = {}
+						local newids = concatenate(ids,gids)
+						local newtags = concatenate(tags,gtags)
+
+						newconds = copyconds(newconds,conds)
+						newconds = copyconds(newconds,gconds)
+
+						if (#prevents == 0) and name_ ~= "text" and string.sub(name_,1,4) ~= "meta" then
+							table.insert(combined, {newrule,newconds,newids,newtags})
+						elseif name_ ~= "text" and string.sub(name_,1,4) ~= "meta" then
+							newconds = copyconds(newconds,prevents)
+							table.insert(combined, {newrule,newconds,newids,newtags})
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for i,v_ in ipairs(groupxgroup) do
+		local v = v_[1]
+		local recursion = v_[2] or false
+
+		local rule = v[1]
+		local conds = v[2]
+		local ids = v[3]
+		local tags = v[4]
+
+		local gn1 = rule[1]
+		local gn2 = rule[3]
+
+		local never = false
+
+		local notrule = false
+		if (string.sub(gn1, 1, 4) == "not ") then
+			notrule = true
+			gn1 = string.sub(gn1, 5)
+		end
+
+		local prevents = {}
+		if (xnotgroup[gn1] ~= nil) then
+			for a,b_ in ipairs(xnotgroup[gn1]) do
+				local b = b_[1]
+				local brule = b[1]
+
+				if (brule[1] == rule[1]) and (brule[2] == rule[2]) and (brule[3] == "not " .. rule[3]) then
+					recursion = b_[2] or recursion
+
+					local pconds,crashy,neverfound = invertconds(b[2])
+
+					if (neverfound == false) then
+						for a,cond in ipairs(pconds) do
+							table.insert(prevents, cond)
+						end
+					else
+						never = true
+						break
+					end
+				end
+			end
+		end
+
+		if (never == false) then
+			local team1 = {}
+			local team2 = {}
+
+			if (notrule == false) then
+				if (memberships[gn1] ~= nil) then
+					for a,b in ipairs(memberships[gn1]) do
+						table.insert(team1, b)
+					end
+				end
+			else
+				local ignorethese = {}
+
+				if (memberships[gn1] ~= nil) then
+					for a,b in ipairs(memberships[gn1]) do
+						ignorethese[b[1]] = 1
+
+						local iconds,icrash,inever = invertconds(b[2])
+
+						if (inever == false) then
+							table.insert(team1, {b[1],iconds,b[3]})
+						end
+					end
+				end
+
+				for a,b in pairs(objectlist) do
+					if (findnoun(a) == false) and (ignorethese[a] == nil) then
+						table.insert(team1, {a})
+					end
+				end
+			end
+
+			if (memberships[gn2] ~= nil) then
+				for a,b in ipairs(memberships[gn2]) do
+					table.insert(team2, b)
+				end
+			end
+
+			for a,b in ipairs(team1) do
+				for c,d in ipairs(team2) do
+					local newrule = {b[1],rule[2],d[1]}
+					local newconds = {}
+					newconds = copyconds(newconds,conds)
+
+					if (b[2] ~= nil) then
+						newconds = copyconds(newconds,b[2])
+					end
+
+					if (d[2] ~= nil) then
+						newconds = copyconds(newconds,d[2])
+					end
+
+					if (#prevents > 0) then
+						newconds = copyconds(newconds,prevents)
+					end
+
+					local newids = concatenate(ids)
+					local newtags = concatenate(tags)
+
+					table.insert(combined, {newrule,newconds,newids,newtags})
+				end
+			end
+		end
+	end
+
+	if (#notgroupx > 0) then
+		for name,v in pairs(objectlist) do
+			if (findnoun(name) == false) then
+				for a,b_ in ipairs(notgroupx) do
+					local b = b_[1]
+					local recursion = b_[2] or false
+
+					local rule = b[1]
+					local conds = b[2]
+					local ids = b[3]
+					local tags = b[4]
+
+					local newconds = {}
+					newconds = copyconds(newconds,conds)
+
+					local groupname = string.sub(rule[1], 5)
+					local valid = true
+
+					if (groupmembers_quick[name .. "_" .. groupname] ~= nil) then
+						for c,d in ipairs(groupmembers_quick[name .. "_" .. groupname]) do
+							recursion = d[4] or recursion
+
+							local iconds,icrash,inever = invertconds(d[2])
+							newconds = copyconds(newconds,iconds)
+
+							if inever then
+								valid = false
+								break
+							end
+						end
+					end
+
+					if valid then
+						local newrule = {name,rule[2],rule[3]}
+						local newids = {}
+						local newtags = {}
+						newids = concatenate(newids,ids)
+						newtags = concatenate(newtags,tags)
+
+						table.insert(combined, {newrule,newconds,newids,newtags})
+					end
+				end
+			end
+		end
+	end
+
+	for i,v_ in ipairs(xgroup) do
+		local v = v_[1]
+		local recursion = v_[2] or false
+
+		local rule = v[1]
+		local conds = v[2]
+		local ids = v[3]
+		local tags = v[4]
+
+		if (string.sub(rule[1], 1, 5) ~= "group") and (string.sub(rule[1], 1, 9) ~= "not group") and (rule[2] ~= "is") then
+			local team2 = {}
+
+			if (memberships[rule[3]] ~= nil) then
+				for a,b in ipairs(memberships[rule[3]]) do
+					local foundtag = false
+					if metatext_fixquirks and (rule[2] == "become" or rule[2] == "has" or rule[2] == "make" or rule[2] == "write") and b[1] ~= "text" and string.sub(b[1],1,4) ~= "meta" then
+						for num,tag in ipairs(b[3]) do
+							if tag == "text" or string.sub(tag,1,4) == "meta" then
+								foundtag = true
+								break
+							end
+						end
+					elseif (b[1] == "text" or string.sub(b[1],1,4) == "meta") and (rule[2] ~= "become" and rule[2] ~= "has" and rule[2] ~= "make" and rule[2] ~= "write") then
+						foundtag = true
+					end
+					if not foundtag then
+						table.insert(team2, b)
+					end
+				end
+			end
+
+			for a,b in ipairs(team2) do
+				local newrule = {rule[1],rule[2],b[1]}
+				local newconds = {}
+				newconds = copyconds(newconds,conds)
+
+				if (b[2] ~= nil) then
+					newconds = copyconds(newconds,b[2])
+				end
+
+				local newids = concatenate(ids)
+				local newtags = concatenate(tags)
+
+				table.insert(combined, {newrule,newconds,newids,newtags})
+			end
+		end
+	end
+
+	for i,k in pairs(xnotgroup) do
+		for c,v_ in ipairs(k) do
+			local v = v_[1]
+			local recursion = v_[2] or false
+
+			local rule = v[1]
+			local conds = v[2]
+			local ids = v[3]
+			local tags = v[4]
+
+			if (string.sub(rule[1], 1, 5) ~= "group") and (string.sub(rule[1], 1, 9) ~= "not group") and (rule[2] ~= "is") then
+				local team2 = {}
+
+				local gn2 = string.sub(rule[3], 5)
+
+				if (memberships[gn2] ~= nil) then
+					for a,b in ipairs(memberships[gn2]) do
+						table.insert(team2, b)
+					end
+				end
+
+				for a,b in ipairs(team2) do
+					local newrule = {rule[1],rule[2],"not " .. b[1]}
+					local newconds = {}
+					newconds = copyconds(newconds,conds)
+
+					if (b[2] ~= nil) then
+						newconds = copyconds(newconds,b[2])
+					end
+
+					local newids = concatenate(ids)
+					local newtags = concatenate(tags)
+
+					table.insert(combined, {newrule,newconds,newids,newtags})
+				end
+			end
+		end
+	end
+
+	for i,v_ in ipairs(groupisnotgroup) do
+		local v = v_[1]
+		local recursion = v_[2] or false
+
+		local rule = v[1]
+		local conds = v[2]
+		local ids = v[3]
+		local tags = v[4]
+
+		local team1 = {}
+
+		if (memberships[rule[1]] ~= nil) then
+			for a,b in ipairs(memberships[rule[1]]) do
+				table.insert(team1, b)
+			end
+		end
+
+		for a,b in ipairs(team1) do
+			local newrule = {b[1],"is","crash"}
+			local newconds = {}
+			newconds = copyconds(newconds,conds)
+
+			if (b[2] ~= nil) then
+				newconds = copyconds(newconds,b[2])
+			end
+
+			local newids = concatenate(ids)
+			local newtags = concatenate(tags)
+
+			table.insert(combined, {newrule,newconds,newids,newtags})
+		end
+	end
+
+	for i,v_ in ipairs(notgroupisgroup) do
+		local v = v_[1]
+		local recursion = v_[2] or false
+
+		local rule = v[1]
+		local conds = v[2]
+		local ids = v[3]
+		local tags = v[4]
+
+		local team1 = {}
+
+		local gn1 = string.sub(rule[1], 5)
+
+		local ignorethese = {}
+
+		if (memberships[gn1] ~= nil) then
+			for a,b in ipairs(memberships[gn1]) do
+				ignorethese[b[1]] = 1
+
+				local iconds,icrash,inever = invertconds(b[2])
+
+				if (inever == false) then
+					table.insert(team1, {b[1],iconds})
+				end
+			end
+		end
+
+		for a,b in pairs(objectlist) do
+			if (findnoun(a) == false) and (ignorethese[a] == nil) then
+				table.insert(team1, {a})
+			end
+		end
+
+		for a,b in ipairs(team1) do
+			local newrule = {b[1],"is","crash"}
+			local newconds = {}
+			newconds = copyconds(newconds,conds)
+
+			if (b[2] ~= nil) then
+				newconds = copyconds(newconds,b[2])
+			end
+
+			local newids = concatenate(ids)
+			local newtags = concatenate(tags)
+
+			table.insert(combined, {newrule,newconds,newids,newtags})
+		end
+	end
+
+	for i,v in ipairs(combined) do
+		addoption(v[1],v[2],v[3],false,nil,v[4])
+	end
+end
+function ruleblockeffect()
+	local handled = {}
+	
+	for i,rules in pairs(features) do
+		local rule = rules[1]
+		local conds = rules[2]
+		local ids = rules[3]
+		local tags = rules[4]
+		local blocked = false
+		local glyphrule = false
+		if (tags[1] == "glyphrule") then
+			glyphrule = true	
+		end
+		
+		for a,b in ipairs(conds) do
+			if (b[1] == "never") then
+				blocked = true
+				break
+			end
+		end
+		
+		--MF_alert(rule[1] .. " " .. rule[2] .. " " .. rule[3] .. ": " .. tostring(blocked))
+		
+		if blocked then
+			for a,d in ipairs(ids) do
+				for c,b in ipairs(d) do
+					if (handled[b] == nil) and not glyphrule then
+						local runit = mmf.newObject(b)
+						
+						local blockid = MF_create("Ingame_blocked")
+						local bunit = mmf.newObject(blockid)
+						
+						bunit.x = runit.x
+						bunit.y = runit.y
+						
+						bunit.values[XPOS] = runit.values[XPOS]
+						bunit.values[YPOS] = runit.values[YPOS]
+						bunit.layer = 1
+						bunit.values[ZLAYER] = 20
+						bunit.values[TYPE] = b
+						
+						bunit.scaleX = spritedata.values[TILEMULT] * generaldata2.values[ZOOM]
+						bunit.scaleY = spritedata.values[TILEMULT] * generaldata2.values[ZOOM]
+						
+						bunit.visible = runit.visible
+						
+						local c1,c2 = getuicolour("blocked")
+						MF_setcolour(blockid,c1,c2)
+						
+						handled[b] = 2
+					elseif (handled[b] == nil) then
+						local runit = mmf.newObject(b)
+						MF_setcolour(b,0,1)
+
+						local blockid = MF_create("Ingame_blocked")
+						local bunit = mmf.newObject(blockid)
+						
+						bunit.x = runit.x
+						bunit.y = runit.y
+						
+						bunit.values[XPOS] = runit.values[XPOS]
+						bunit.values[YPOS] = runit.values[YPOS]
+						bunit.layer = 1
+						bunit.values[ZLAYER] = 20
+						bunit.values[TYPE] = b
+						
+						bunit.scaleX = spritedata.values[TILEMULT] * generaldata2.values[ZOOM]
+						bunit.scaleY = spritedata.values[TILEMULT] * generaldata2.values[ZOOM]
+						
+						bunit.visible = runit.visible
+						
+						local c1,c2 = getuicolour("blocked")
+						MF_setcolour(blockid,0,0)
+						
+						handled[b] = 2
+					end
+				end
+			end
+		else
+			for a,d in ipairs(ids) do
+				for c,b in ipairs(d) do
+					if (handled[b] == nil) then
+						handled[b] = 1
+					elseif (handled[b] == 2) then
+						MF_removeblockeffect(b)
+						if glyphrule then
+							local runit = mmf.newObject(b)
+							local name = getname(runit,"glyph")
+							if name == "glyph" then
+								setcolour(b, "active")
+							else
+								setcolour(b)
 							end
 						end
 					end

@@ -31,6 +31,9 @@ formatobjlist()
 
 local utils = PlasmaModules.load_module("general/utils")
 local cut_pack_word_verify = PlasmaModules.load_module("cutpack/word_verify")
+local PlasmaSettings = PlasmaModules.load_module("general/gui")
+local enable_better_cut = PlasmaSettings.get_toggle_setting("enable_metacut")
+local enable_funny_cut = PlasmaSettings.get_toggle_setting("underline_refers")
 -- Global variables
 
 splice_mod_globals = {}
@@ -109,7 +112,7 @@ function check_text_cutting(cutterunitid, textunitid, pulling, cutter_pushed_aga
     end
 
     local textunit = mmf.newObject(textunitid)
-    if pulling or textunit.strings[UNITTYPE] ~= "text" or (textunit.values[TYPE] == 5 and #textunit.strings[NAME] == 1) then
+    if pulling or textunit.strings[UNITTYPE] ~= "text" or (textunit.values[TYPE] == 5 and #textunit.strings[UNITNAME] == (5 + 1)) then
         return false
     end
 
@@ -134,7 +137,7 @@ function check_text_cutting(cutterunitid, textunitid, pulling, cutter_pushed_aga
 
     -- check that all characters in the text are valid
     local name = textunit.strings[NAME]
-    if not cut_pack_word_verify:get_cut_text(name, textunit.values[DIR]) then 
+    if (not cut_pack_word_verify:get_cut_text(name, textunit.values[DIR])) and not (textunit.strings[UNITNAME] == "text_text_" and enable_funny_cut) then
         return false 
     end
 
@@ -179,15 +182,46 @@ function handle_text_cutting(data, cut_direction)
     local ox = dirvec[1]
     local oy = dirvec[2]
 
-    local outstr = cut_pack_word_verify:get_cut_text(bname, cut_text_unit.values[DIR], cut_direction)
-    if outstr then
+    local outstr, mlayer = cut_pack_word_verify:get_cut_text(bname, cut_text_unit.values[DIR], cut_direction)
+    if outstr or (cut_text_unit.strings[UNITNAME] == "text_text_" and enable_funny_cut) then
+        local dire = false
+
         if cut_direction == 1 or cut_direction == 2 then
+            if outstr == nil then outstr = "" end
             outstr = outstr:reverse()
+            dire = true
         end
 
         arrow_prop_mod_globals.group_arrow_properties = false
 
-        for c in outstr:gmatch"." do
+        local cut_table = {}
+
+        if enable_funny_cut and cut_text_unit.strings[UNITNAME] == "text_text_" then
+            if dire then
+                cut_table = {"refers", "text"}
+            else
+                cut_table = {"text", "refers"}
+            end
+        else
+            for i in outstr:gmatch"." do
+                table.insert(cut_table, i)
+            end
+        end
+
+        if (mlayer ~= nil) and mlayer ~= 0 and enable_better_cut then
+            if dire then
+                for i=1,mlayer do
+                    table.insert(cut_table,"text_")
+                end
+            else
+                for i=1,mlayer do
+                    table.insert(cut_table,1,"text_")
+                end
+            end
+
+        end
+
+        for _,c in ipairs(cut_table) do
             local obs = findobstacle(x+ox,y-oy)
             local valid = true
             if (#obs > 0) then
@@ -203,8 +237,8 @@ function handle_text_cutting(data, cut_direction)
                             local obspush = hasfeature(obsname,"is","push",b,x+ox,y+oy)
                             local obspull = hasfeature(obsname,"is","pull",b,x+ox,y+oy)
 
-                            obsstop, obspush, obspull = do_directional_collision(cut_direction, obsname, b, obsstop, obspush, obspull, x, y, ox, oy, false)
-                            
+                            obsstop, obspush, obspull = do_directional_collision(cut_direction, obsname, 0, obsstop, obspush, obspull, x, y, ox, oy, false)
+
                             if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
                                 valid = false
                                 break
@@ -218,7 +252,7 @@ function handle_text_cutting(data, cut_direction)
                 local obspull = hasfeature("empty","is","pull",2,x+ox,y+oy)
 
                 obsstop, obspush, obspull = do_directional_collision(cut_direction, "empty", b, obsstop, obspush, obspull, x, y, ox, oy, false)
-                
+
                 if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
                     valid = false
                 end
@@ -297,7 +331,7 @@ local function text_packing_get_letter(unitid, x, y, dir, packer_pushed_against)
         end
         if (obs ~= 2 and obs ~= 0) then
             local obsunit = mmf.newObject(obs)
-            if obsunit.strings[UNITTYPE] == "text" and obsunit.values[TYPE] == 5 then
+            if (obsunit.strings[UNITNAME] == "text_text_") or (obsunit.strings[UNITTYPE] == "text" and obsunit.values[TYPE] == 5) or (enable_funny_cut and (obsunit.strings[UNITNAME] == "text_text" or obsunit.strings[UNITNAME] == "text_refers")) then
                 if not letterunitid then
                     letterunitid = obs
                 else
@@ -332,8 +366,13 @@ function check_text_packing(packerunitid, textunitid, dir, pulling, packer_pushe
     end
 
     local textunit = mmf.newObject(textunitid)
-    if pulling or textunit.strings[UNITTYPE] ~= "text" or textunit.values[TYPE] ~= 5 then
+    if pulling or (textunit.strings[UNITNAME] ~= "text_text_" and not (enable_funny_cut and (textunit.strings[UNITNAME] == "text_text" or textunit.strings[UNITNAME] == "text_refers")) and (textunit.strings[UNITTYPE] ~= "text" or textunit.values[TYPE] ~= 5)) then
         return false
+    end
+
+    local joke_pack = false
+    if (textunit.strings[UNITNAME] == "text_text" or textunit.strings[UNITNAME] == "text_refers") then
+        joke_pack = true
     end
 
     local reverse = dir == 1 or dir == 2
@@ -435,6 +474,7 @@ function check_text_packing(packerunitid, textunitid, dir, pulling, packer_pushe
         if #found_letters > 1 and is_text_in_palette(packed_text_name)then
             -- Commented out due to error when "X is all". This isn't the direct cause, but might cause other cases. But is there a need to add this to the objectlist
             -- objectlist["text_"..packed_text_name] = 1
+            if joke_pack and packed_text_name ~= "text_" then return false end
             break
         end
         

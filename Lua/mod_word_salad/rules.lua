@@ -7,9 +7,3 @@
 -- OVERRIDE: handle ECHO objects
 
 --[[ @Merge: codecheck() was merged ]]
-
-
--- OVERRIDE: implement AMBIENT (?)
-
---[[ @Merge: addoption() was merged ]]
-

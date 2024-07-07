@@ -172,29 +172,41 @@ editor_objlist["text_local3"] =
 	colour_active = {4, 4},
 }
 
+add_glyph_using_text("offline")
+add_glyph_using_text("router")
+add_glyph_using_text("local")
+add_glyph_using_text("channel1")
+add_glyph_using_text("channel2")
+add_glyph_using_text("channel3")
+add_glyph_using_text("offline1")
+add_glyph_using_text("offline2")
+add_glyph_using_text("offline3")
+add_glyph_using_text("local1")
+add_glyph_using_text("local2")
+add_glyph_using_text("local3")
 
 formatobjlist()
 
 -- @Merge: Word Glossary Mod support
 if keys.IS_WORD_GLOSSARY_PRESENT then
-    keys.WORD_GLOSSARY_FUNCS.register_author("Mathguy", {1,3} )
-    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
-        {
+	keys.WORD_GLOSSARY_FUNCS.register_author("Mathguy", {1,3} )
+	keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+		{
 			name = "local",
 			author = "Mathguy",
 			display_sprites = {"text_local", "text_local1", "text_local2", "text_local3"},
 			description =
-[[True if the object is within the 5x5 square area centered around a "ROUTER" or "CHANNEL X" object.
+			[[True if the object is within the 5x5 square area centered around a "ROUTER" or "CHANNEL X" object.
 
-"LOCAL X" is true only if the object is within the range of a "ROUTER" object or a "CHANNEL X" object.]],
+            "LOCAL X" is true only if the object is within the range of a "ROUTER" object or a "CHANNEL X" object.]],
 		},
 		{
 			name = "router",
 			author = "Mathguy",
 			description =
-[[Creates a 5x5 square area centered around the "ROUTER" object where other objects can be considered "LOCAL" across all channels.
+			[[Creates a 5x5 square area centered around the "ROUTER" object where other objects can be considered "LOCAL" across all channels.
 
-The "ROUTER" object itself will not be considered "LOCAL" to itself. Only to other router objects.]],
+            The "ROUTER" object itself will not be considered "LOCAL" to itself. Only to other router objects.]],
 		},
 		{
 			name = "channel",
@@ -208,11 +220,11 @@ The "ROUTER" object itself will not be considered "LOCAL" to itself. Only to oth
 			author = "Mathguy",
 			display_sprites = {"text_offline", "text_offline1", "text_offline2", "text_offline3"},
 			description =
-[[Prevents the object from being considered "LOCAL" across all channels.
-	
-If an object is "OFFLINE X", then the object specifically cannot be "LOCAL X".]],
+			[[Prevents the object from being considered "LOCAL" across all channels.
+
+            If an object is "OFFLINE X", then the object specifically cannot be "LOCAL X".]],
 		},
-    })
+	})
 end
 
 condlist['local'] = function(params, checkedconds,checkedconds_, cdata)

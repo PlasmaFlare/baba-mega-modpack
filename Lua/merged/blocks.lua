@@ -10,6 +10,11 @@ function moveblock(onlystartblock_)
 	if (onlystartblock == false) then
 		isshift = findallfeature(nil,"is","shift",true)
 		istele = findallfeature(nil,"is","tele",true)
+		-- NIMI MOD EDIT: make throw objects update their facing later in the turn like shift objects do
+		local isthrow = findallfeature(nil,"is","throw",true)
+		for i,v in ipairs(isthrow) do
+			table.insert(isshift,v)
+		end
 	end
 	
 	local doned = {}
@@ -23,11 +28,16 @@ function moveblock(onlystartblock_)
 					if (issleep(l) == false) then
 						local unit = mmf.newObject(l)
 						local x,y,name,dir = unit.values[XPOS],unit.values[YPOS],unit.strings[UNITNAME],unit.values[DIR]
-						local unitrules = {}
+						local unitrules, gunitrules = {}, {}
 						local followedfound = false
-						
+
+						local gname = nil
 						if (unit.strings[UNITTYPE] == "text") then
-							name = "text"
+							gname = "text"
+						end
+						
+						if isglyph(unit) then
+							gname = "glyph"
 						end
 						
 						if (featureindex[name] ~= nil) then					
@@ -44,8 +54,31 @@ function moveblock(onlystartblock_)
 								end
 							end
 						end
+
+						if (gname ~= nil) then
+							if (featureindex[gname] ~= nil) then
+								for a,b in ipairs(featureindex[gname]) do
+									local baserule = b[1]
+									local conds = b[2]
+
+									local verb = baserule[2]
+
+									if (verb == "follow") then
+										if testcond(conds,l) then
+											table.insert(gunitrules, b)
+										end
+									end
+								end
+							end
+						end
 						
 						local follow = xthis(unitrules,name,"follow")
+
+						if #gunitrules ~= 0 then
+							for _,v in ipairs(xthis(gunitrules, gname, "follow")) do
+								table.insert(follow, v)
+							end
+						end
 						
 						if (#follow > 0) and (unit.flags[DEAD] == false) then
 							local distance = 9999
@@ -299,15 +332,33 @@ function moveblock(onlystartblock_)
 										newunit.followed = followed
 										newunit.back_init = back_init
 										
-										if (newunit.strings[UNITTYPE] == "text") then
+										if (newunit.strings[UNITTYPE] == "text") or isglyph(newunit) then
 											updatecode = 1
 										end
 										
 										local undowordunits = currentundo.wordunits
 										local undowordrelatedunits = currentundo.wordrelatedunits
+										local undosymbolunits = currentundo.wordunits
+										local undowordrelatedunits = currentundo.wordrelatedunits
 										
 										if (#undowordunits > 0) then
 											for a,b in ipairs(undowordunits) do
+												if (b == bline[6]) then
+													updatecode = 1
+												end
+											end
+										end
+										
+										if (#undosymbolunits > 0) then
+											for a,b in ipairs(undosymbolunits) do
+												if (b == bline[6]) then
+													updatecode = 1
+												end
+											end
+										end
+										
+										if (#undowordrelatedunits > 0) then
+											for a,b in ipairs(undowordrelatedunits) do
 												if (b == bline[6]) then
 													updatecode = 1
 												end
@@ -368,7 +419,6 @@ function moveblock(onlystartblock_)
 		for i,unitid in ipairs(istele) do
 			if (isgone(unitid) == false) then
 				local unit = mmf.newObject(unitid)
-				-- METATEXT
 				local name = getname(unit)
 				local x,y = unit.values[XPOS],unit.values[YPOS]
 			
@@ -380,7 +430,7 @@ function moveblock(onlystartblock_)
 					for i,v in ipairs(targets) do
 						local vunit = mmf.newObject(v)
 						local thistype = vunit.strings[UNITTYPE]
-						local vname = vunit.strings[UNITNAME]
+						local vname = getname(vunit)
 						
 						local targetvalid = isgone(v)
 						local targetstill = hasfeature(vname,"is","still",v,x,y)
@@ -395,7 +445,11 @@ function moveblock(onlystartblock_)
 							local odata = objectdata[v]
 							
 							if (odata.tele == nil) then
-								if (targetname ~= name) and (v ~= unitid) then
+								if ((targetname ~= name) or ((metatext_fixquirks and
+										(getname(vunit,"text") == "text" and getname(unit,"text") == "text" and checkiftextrule(name,"is","tele",unitid)))
+										or (getname(vunit,"glyph") == "glyph" and getname(unit,"glyph") == "glyph" and checkiftextrule(name,"is","tele",unitid,true,"glyph"))
+										or (getmetalevel(targetname) == getmetalevel(name) and checkiftextrule(name,"is","tele",nil,"meta"..getmetalevel(name)))))
+										and (v ~= unitid) then
 									local teles = istele
 									
 									if (#teles > 1) then
@@ -406,7 +460,10 @@ function moveblock(onlystartblock_)
 											local tele = mmf.newObject(b)
 											local telename = getname(tele)
 											
-											if (b ~= unitid) and (telename == name) and (tele.flags[DEAD] == false) then
+											if (b ~= unitid) and (telename == name
+													or (metatext_fixquirks and getname(tele,"text") == "text" and getname(unit,"text") == "text" and checkiftextrule(name,"is","tele",unitid,true))
+													or (getmetalevel(telename) == getmetalevel(name) and checkiftextrule(name,"is","tele",unitid,true,"meta"..getmetalevel(name)))
+													or (getname(tele,"glyph") == "glyph" and getname(unit,"glyph") == "glyph" and checkiftextrule(name,"is","tele",unitid,true,"glyph"))) and (tele.flags[DEAD] == false) then
 												table.insert(teletargets, b)
 											end
 										end
@@ -444,20 +501,12 @@ function moveblock(onlystartblock_)
 				end
 			end
 		end
+	end
 	
 	if enable_directional_shift then
 		--@Turning Text(shift)
 		do_directional_shift_moveblock()
 	else
-			--[[
-				@Note from plasma: as weird as this may sound, I think that the entirety of this shift code below is redundant in vanilla.
-				The code to handle updating directions of shifted objects is already handled in movecommand() with this code snippet:
-					if (state == 0) and (data.reason == "shift") and (data.unitid ~= 2) then
-						updatedir(data.unitid, data.dir)
-						dir = data.dir
-					end 
-				As such, I decided to not bother with removing calling do_directional_shift_moveblock() if enable_directional_shift == true
-			]]
 		for a,unitid in ipairs(isshift) do
 			if (unitid ~= 2) and (unitid ~= 1) then
 				local unit = mmf.newObject(unitid)
@@ -493,7 +542,6 @@ function moveblock(onlystartblock_)
 		end
 		
 		doupdate()
-	end
 	end
 end
 
@@ -551,7 +599,7 @@ function block(small_)
 				dynamicat(x,y)
 			end
 		end
-		
+
 		local ismore = getunitswitheffect("more",false,delthese)
 		--@Turning Text(more)
 		ismore = do_directional_more(ismore, delthese)
@@ -562,16 +610,16 @@ function block(small_)
 			local unitid = unit.fixed
 			local name = unit.strings[UNITNAME]
 			local doblocks = {}
-			
+
 			for _, i in ipairs(dirs) do
 				local drs = ndirs[i]
 				ox = drs[1]
 				oy = drs[2]
-				
+
 				local valid = true
 				local obs = findobstacle(x+ox,y+oy)
 				local tileid = (x+ox) + (y+oy) * roomsizex
-				
+
 				if (#obs > 0) then
 					for a,b in ipairs(obs) do
 						if (b == -1) then
@@ -579,7 +627,7 @@ function block(small_)
 						elseif (b ~= 0) and (b ~= -1) then
 							local bunit = mmf.newObject(b)
 							local obsname = bunit.strings[UNITNAME]
-							
+
 							local obsstop = hasfeature(obsname,"is","stop",b,x+ox,y+oy) or (featureindex["stops"] ~= nil and hasfeature(obsname,"stops",name,b,x+ox,y+oy)) or hasfeature(obsname,"is","sidekick",b,x+ox,y+oy) or (featureindex["hates"] ~= nil and hasfeature(name,"hates",obsname,unitid,x,y)) or (hasfeature(obsname,"is","oneway",b) and oxoytodir(ox,oy) == rotate(bunit.values[DIR]))
 							if (obsstop == false) then
 								obsstop = nil
@@ -594,7 +642,7 @@ function block(small_)
 							end
 
 							obsstop, obspush, obspull = do_directional_collision(i-1, obsname, b, obsstop, obspush, obspull, x,y,ox,oy, false)
-							
+
 							if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) or (obsname == name) then
 								valid = false
 								break
@@ -616,12 +664,12 @@ function block(small_)
 					end
 
 					obsstop, obspush, obspull = do_directional_collision(i-1, "empty", 2, obsstop, obspush, obspull, x,y,ox,oy, false)
-					
+
 					if (obsstop ~= nil) or (obspush ~= nil) or (obspull ~= nil) then
 						valid = false
 					end
 				end
-				
+
 				if valid then
 					local newunit = copy(unit.fixed,x+ox,y+oy)
 				end
@@ -631,7 +679,7 @@ function block(small_)
 	end
 	arrow_prop_mod_globals.group_arrow_properties = true
 
-	
+
 	-- EDIT: Implement REPENT (cleanse the karma status of sinful objects)
 	local isrepent = getunitswitheffect("repent",false,delthese)
 	for id,unit in ipairs(isrepent) do
@@ -905,7 +953,8 @@ function block(small_)
 		
 		-- @mods(turning text)
 		arrow_prop_mod_globals.group_arrow_properties = false
-		local name = unit.strings[UNITNAME]
+
+		local name = getname(unit)
 		local count = hasfeature_count(name,"is","boom",unit.fixed,ux,uy)
 		local dim = math.min(count - 1, math.max(roomsizex, roomsizey))
 		arrow_prop_mod_globals.group_arrow_properties = true
@@ -1110,14 +1159,177 @@ function block(small_)
 			end
 		end
 	end
-	
+
 	delthese,doremovalsound = handledels(delthese,doremovalsound,true)
+
+	-- TRASH
+	--[[
+    ###
+    ###
+    ###
+    ###
+
+    ###
+    ###
+    ###
+    ###
+    ]]
+
+
+	local istrash = getunitswithverb("trash",delthese)
+	local istrashed = {}
+
+	for id,ugroup in ipairs(istrash) do
+		local v = ugroup[1]
+		local hasprop = findfeature(nil,"is",v)
+
+		if hasprop ~= nil and string.sub(v, 1, 4) ~= "not "  and ugroup[3] ~= "empty" then
+			for a,b in ipairs(hasprop) do
+				for a,unit in ipairs(ugroup[2]) do
+					local x,y = unit.values[XPOS],unit.values[YPOS]
+					local lava = findtype(b,x,y,0,unit.fixed)
+					if (#lava > 0) then
+						for c,d in ipairs(lava) do
+
+							if (issafe(d,nil,nil,unit.fixed) == false) and floating(d,unit.fixed,x,y) and (d ~= unit.fixed) then
+								ws_setKarma(unit.fixed)
+								if (istrashed[d] == nil) then
+									generaldata.values[SHAKE] = 4
+									table.insert(delthese, d)
+
+									istrashed[d] = 1
+
+									local pmult,sound = checkeffecthistory("trash")
+									MF_particles("eat",x,y,5 * pmult,0,3,1,1)
+									removalshort = sound
+									removalsound = 1
+								end
+							end
+
+						end
+					end
+				end
+			end
+		end
+	end
+
+	delthese,doremovalsound = handledels(delthese,doremovalsound)
+
+
+
+	local iswaste = getunitswithverb("waste",delthese)
+	local iswasted = {}
+
+	for id,ugroup in ipairs(iswaste) do
+		local v = ugroup[1]
+		local hasprop = findfeature(nil,"is",v)
+
+		if hasprop ~= nil and string.sub(v, 1, 4) ~= "not "  and ugroup[3] ~= "empty" then
+			for a,b in ipairs(hasprop) do
+				for a,unit in ipairs(ugroup[2]) do
+					local x,y = unit.values[XPOS],unit.values[YPOS]
+					local lava = findtype(b,x,y,0,unit.fixed)
+					if (#lava > 0) then
+						for c,d in ipairs(lava) do
+
+							if (issafe(d,nil,nil,unit.fixed) == false) and floating(d,unit.fixed,x,y) and (d ~= unit.fixed) then
+								ws_setKarma(unit.fixed)
+								if (istrashed[d] == nil) then
+									generaldata.values[SHAKE] = 4
+									table.insert(delthese, d)
+
+									istrashed[d] = 1
+
+									local pmult,sound = checkeffecthistory("waste")
+									MF_particles("eat",x,y,5 * pmult,0,3,1,1)
+									removalshort = sound
+									removalsound = 1
+								end
+							end
+
+						end
+					end
+				end
+			end
+		end
+
+
+	end
+
+	delthese,doremovalsound = handledels(delthese,doremovalsound)
+
+	for id, unit in ipairs(units) do
+		local toxic = findfeature(nil, "is", "toxic")
+		local x, y = unit.values[XPOS], unit.values[YPOS]
+
+		if (toxic ~= nil) then
+			for a, b in ipairs(toxic) do
+				local acid = findtype(b, x, y, 0)
+
+				if (#acid > 0) and (issafe(unit.fixed) == false) and (hasfeature(getname(unit), "is", "alkali", unit.fixed) == nil) then
+					for c, d in ipairs(acid) do
+						if floating(d, unit.fixed, x, y) then
+							if (hasfeature(getname(unit), "is", "toxic", unit.fixed) == nil) then
+								local pmult, sound = checkeffecthistory("toxic")
+								MF_particles("smoke", x, y, 5 * pmult, 0, 1, 1, 1)
+								generaldata.values[SHAKE] = 5
+								removalshort = sound
+								removalsound = 9
+								table.insert(delthese, unit.fixed)
+								-- @mods(extrem x word salad) Hey you! Don't think you can just toxic other objects
+								-- and get around like that!
+								delthese,removalshort,removalsound = ws_karma(x,y,"toxic",unit.fixed,delthese,removalshort,removalsound)
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+
+		local cells = findfeature(nil, "is", "volt")
+		local x, y = unit.values[XPOS], unit.values[YPOS]
+		if (cells ~= nil) then
+			for a, b in ipairs(cells) do
+				local batteries = findtype(b, x, y, 0)
+
+				if (#batteries > 0) and (issafe(unit.fixed) == false) then
+					for c, d in ipairs(batteries) do
+						if floating(d, unit.fixed, x, y) then
+
+							local volts = hasfeature_count(getname(unit), "is", "volt", unit.fixed)
+
+							if (volts < hasfeature_count(getname(mmf.newObject(d)), "is", "volt", d)) then
+								local pmult, sound = checkeffecthistory("volt")
+								MF_particles("smoke", x, y, 5 * pmult, 0, 1, 1, 1)
+								MF_particles("electricity", x, y, 5 * pmult, 2, 4, 1, 1)
+								generaldata.values[SHAKE] = 5
+								removalshort = sound
+								removalsound = 9
+								table.insert(delthese, unit.fixed)
+								-- @mods(extrem x word salad) Hey you! Don't think you can just volt other objects
+								-- and get around like that!
+								ws_setKarma(d)
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+
+	delthese,doremovalsound = handledels(delthese,doremovalsound,true)
+
 	
 	local isyou = getunitswitheffect("you",false,delthese)
 	local isyou2 = getunitswitheffect("you2",false,delthese)
 	local isyou3 = getunitswitheffect("3d",false,delthese)
-	local isyou4 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
-	
+	local isyou42 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
+	local isyou4 = getunitswitheffect("puppet", false, delthese)
+	local isyou5 = getunitswitheffect("youplus", false, delthese)
+
 	for i,v in ipairs(isyou2) do
 		table.insert(isyou, v)
 	end
@@ -1126,7 +1338,15 @@ function block(small_)
 		table.insert(isyou, v)
 	end
 	
-	for i,v in ipairs(isyou4) do
+	for i,v in ipairs(isyou42) do
+		table.insert(isyou, v)
+	end
+
+	for i, v in ipairs(isyou4) do
+		table.insert(isyou, v)
+	end
+
+	for i, v in ipairs(isyou5) do
 		table.insert(isyou, v)
 	end
 	
@@ -1147,7 +1367,7 @@ function block(small_)
 							if (d ~= unit.fixed) then
 								if floating(d,unit.fixed,x,y) then
 									local kunit = mmf.newObject(d)
-									local kname = kunit.strings[UNITNAME]
+									local kname = getname(kunit)
 									
 									local weakskull = hasfeature(kname,"is","weak",d)
 									
@@ -1376,14 +1596,58 @@ function block(small_)
 				
 				local exists = false
 				
-				if (v ~= "text") and (v ~= "all") then
-					for b,mat in pairs(objectlist) do
+				if (v ~= "text") and (v ~= "glyph") and (v ~= "all") and (string.sub(v,1,4) ~= "meta") then
+					for b,mat in pairs(fullunitlist) do
 						if (b == v) then
 							exists = true
+							break
 						end
 					end
+					if not exists and string.sub(v,1,5) == "text_" or string.sub(v,1,6) == "glyph_" then
+						exists = tryautogenerate(v)
+					end
 				else
-					exists = true
+					if (v ~= "text") and (string.sub(v, 1, 4) ~= "meta") and (v ~= "glyph") then
+						exists = true
+					elseif (v ~= "text") and (string.sub(v, 1, 4) == "meta") then
+						local level = string.sub(v, 5)
+						if tonumber(level) ~= nil and tonumber(level) >= -1 then
+							local basename = string.gsub(name, "text_", "")
+							if basename == "" then
+								basename = "text_"
+							end
+							local newname = string.rep("text_", level + 1) .. basename
+							for b, mat in pairs(fullunitlist) do
+								if (b == newname) and (findnoun(newname, nlist.short, true) == false) then
+									exists = true
+									break
+								end
+							end
+							if not exists and tonumber(level) >= 0 then
+								exists = tryautogenerate(newname)
+							end
+						end
+					elseif (v == "text") then
+						for b, mat in pairs(fullunitlist) do
+							if (b == "text_" .. name) then
+								exists = true
+								break
+							end
+						end
+						if not exists then
+							exists = tryautogenerate("text_" .. name,name)
+						end
+					elseif (v == "glyph") then
+						for b, mat in pairs(fullunitlist) do
+							if (b == "glyph_" .. name) then
+								exists = true
+								break
+							end
+						end
+						if not exists then
+							exists = tryautogenerate("glyph_" .. name,name)
+						end
+					end
 				end
 				
 				if exists then
@@ -1397,7 +1661,7 @@ function block(small_)
 								local thing = mmf.newObject(b)
 								local thingname = thing.strings[UNITNAME]
 								
-								if (thing.flags[CONVERTED] == false) and ((thingname == v) or ((thing.strings[UNITTYPE] == "text") and (v == "text"))) then
+								if (thing.flags[CONVERTED] == false) and ((thingname == v) or ((thing.strings[UNITTYPE] == "text") and (v == "text") and (unit.strings[UNITTYPE] ~= "text" or thingname == "text_" .. name)) or "meta"..getmetalevel(thingname) == v) then
 									domake = false
 								end
 							end
@@ -1405,11 +1669,28 @@ function block(small_)
 					end
 					
 					if domake then
-						if (findnoun(v,nlist.short) == false) then
+						if (findnoun(v,nlist.short,true) == false) then
 							create(v,x,y,dir,x,y,nil,nil,leveldata)
 						elseif (v == "text") then
 							if (name ~= "text") and (name ~= "all") then
 								create("text_" .. name,x,y,dir,x,y,nil,nil,leveldata)
+								updatecode = 1
+							end
+						elseif string.sub(v, 1, 4) == "meta" then
+							local level = string.sub(v, 5)
+							if tonumber(level) ~= nil and tonumber(level) >= -1 then
+								local basename = string.gsub(name,"text_","")
+								if basename == "" then
+									basename = "text_"
+								end
+								local newname = string.rep("text_", level + 1) .. basename
+								if (name ~= "text") and (name ~= newname) and (name ~= "all") then
+									create(newname,x,y,dir,x,y,nil,nil,leveldata)
+								end
+							end
+						elseif (v == "glyph") then
+							if (name ~= "glyph") and (name ~= "all") then
+								create("glyph_" .. name,x,y,dir,x,y,nil,nil,leveldata)
 								updatecode = 1
 							end
 						elseif (string.sub(v, 1, 5) == "group") then
@@ -1429,18 +1710,75 @@ function block(small_)
 				end
 			end
 		end
-		
-		local isprint = getunitswithverb("print",delthese)
-		
-		for id,ugroup in ipairs(isprint) do
+
+
+
+		local isbuild = getunitswithverb("build",delthese)
+
+		for id,ugroup in ipairs(isbuild) do
 			local v = ugroup[1]
-			v = "text_" .. v
-			
+
+			local buildthese = {}
+			local debug = ""
+			local hasprop = findfeature(nil,"is",v)
+			if hasprop ~= nil then
+				for i, j in ipairs(hasprop) do
+
+					if j[1] == "text" then
+						if #j[2] > 0 then
+							for l, m in ipairs(findall(j)) do
+								local munit = mmf.newObject(m)
+								if munit ~= nil then
+									local valid = true
+									for o, p in ipairs(buildthese) do
+										if p == munit.strings[UNITNAME] then
+											valid = false
+											break
+										end
+									end
+									if valid then
+										table.insert(buildthese, munit.strings[UNITNAME])
+										debug = debug .. munit.strings[UNITNAME]
+									end
+								end
+							end
+						else
+							local valid = true
+							for o, p in ipairs(buildthese) do
+								if p == "text" then
+									valid = false
+									break
+								end
+							end
+							if valid then
+								table.insert(buildthese, "text")
+								debug = debug .. "text"
+							end
+						end
+					elseif j[1] ~= "group" then
+						local valid = true
+						for o, p in ipairs(buildthese) do
+							if p == j[1] then
+								valid = false
+								break
+							end
+						end
+						if #j[2] > 0 and #findall(j) < 1 then
+							valid = false
+						end
+						if valid then
+							table.insert(buildthese, j[1])
+							debug = debug .. j[1]
+						end
+					end
+				end
+			end
+
 			for a,unit in ipairs(ugroup[2]) do
 				local x,y,dir,name = 0,0,4,""
-				
+
 				local leveldata = {}
-				
+
 				if (ugroup[3] ~= "empty") then
 					x,y,dir = unit.values[XPOS],unit.values[YPOS],unit.values[DIR]
 					name = getname(unit)
@@ -1451,50 +1789,131 @@ function block(small_)
 					name = "empty"
 					dir = emptydir(x,y)
 				end
-				
+
+				for i, j in ipairs(buildthese) do
+					if j == "text" or j == "not all" then
+						table.insert(buildthese, {"text_" .. name})
+						hastext = true
+						break
+					end
+				end
+				for i, j in ipairs(buildthese) do
+					if j == "text_" .. name and hastext then
+						table.remove(buildthese, i)
+						break
+					end
+				end
+				for i, j in ipairs(buildthese) do
+					if type(j) == "table" then
+						buildthese[i] = j[1]
+					end
+				end
+
 				if (dir == 4) then
 					dir = fixedrandom(0,3)
 				end
-				
-				if unitreference[v] ~= nil then
+
+				local exists = true
+
+				if exists then
 					local domake = true
-					
+
 					if (name ~= "empty") then
 						local thingshere = findallhere(x,y)
-						
+
 						if (#thingshere > 0) then
 							for a,b in ipairs(thingshere) do
 								local thing = mmf.newObject(b)
 								local thingname = thing.strings[UNITNAME]
-								
+								for i, j in ipairs(buildthese) do
+									if (thing.flags[CONVERTED] == false) and ((thingname == j) or ((thing.strings[UNITTYPE] == "text") and (string.sub(j, 1, 5) == "text"))) then
+										domake = false
+									end
+								end
+							end
+						end
+					end
+
+					if domake then
+						for i, j in ipairs(buildthese) do
+							if j ~= "text" and j ~= "empty" and j ~= "all" and string.sub(j,1,4) ~= "not " and j ~= "level" then
+								create(j,x,y,dir,x,y,nil,nil,leveldata)
+								if (string.sub(j,1,5) == "text_" or string.sub(j,1,6) == "glyph_") then
+									updatecode = 1
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+
+		local isprint = getunitswithverb("print",delthese)
+
+		--@Merge( print x extrem )
+		local istype = getunitswithverb("type",delthese)
+
+		for _,v in ipairs(istype) do
+			table.insert(isprint,v)
+		end
+
+		for id,ugroup in ipairs(isprint) do
+			local v = ugroup[1]
+			v = "text_" .. v
+
+			for a,unit in ipairs(ugroup[2]) do
+				local x,y,dir,name = 0,0,4,""
+
+				local leveldata = {}
+
+				if (ugroup[3] ~= "empty") then
+					x,y,dir = unit.values[XPOS],unit.values[YPOS],unit.values[DIR]
+					name = getname(unit)
+					leveldata = {unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.flags[MAPLEVEL],unit.values[VISUALLEVEL],unit.values[VISUALSTYLE],unit.values[COMPLETED],unit.strings[COLOUR],unit.strings[CLEARCOLOUR]}
+				else
+					x = math.floor(unit % roomsizex)
+					y = math.floor(unit / roomsizex)
+					name = "empty"
+					dir = emptydir(x,y)
+				end
+
+				if (dir == 4) then
+					dir = fixedrandom(0,3)
+				end
+
+
+				local exists = false
+				for b,mat in pairs(fullunitlist) do
+					if (b == v) then
+						exists = true
+						break
+					end
+				end
+				if not exists and (string.sub(v,1,6) == "glyph_" or string.sub(v,1,5) == "text_") then
+					exists = tryautogenerate(v)  --@Merge(metatext x patashu): call tryautogenerate() to make PRINT support generating metatext
+				end
+
+				if exists then
+					local domake = true
+
+					if (name ~= "empty") then
+						local thingshere = findallhere(x, y)
+
+						if (#thingshere > 0) then
+							for a, b in ipairs(thingshere) do
+								local thing = mmf.newObject(b)
+								local thingname = thing.strings[UNITNAME]
+
 								if (thing.flags[CONVERTED] == false) and ((thingname == v) or ((thing.strings[UNITTYPE] == "text") and (v == "text"))) then
 									domake = false
 								end
 							end
 						end
 					end
-					
+
 					if domake then
-						if (findnoun(v,nlist.short) == false) then
-							create(v,x,y,dir,x,y,nil,nil,leveldata)
-						elseif (v == "text") then
-							if (name ~= "text") and (name ~= "all") then
-								create("text_" .. name,x,y,dir,x,y,nil,nil,leveldata)
-								updatecode = 1
-							end
-						elseif (string.sub(v, 1, 5) == "group") then
-							--[[
-							local mem = findgroup(v)
-							
-							for c,d in ipairs(mem) do
-								local thishere = findtype({d},x,y,nil,true)
-								
-								if (#thishere == 0) then
-									create(d,x,y,dir,x,y,nil,nil,leveldata)
-								end
-							end
-							]]--
-						end
+						create(v, x, y, dir, x, y, nil, nil, leveldata)
+						updatecode = 1
 					end
 				end
 			end
@@ -1506,8 +1925,10 @@ function block(small_)
 	isyou = getunitswitheffect("you",false,delthese)
 	isyou2 = getunitswitheffect("you2",false,delthese)
 	isyou3 = getunitswitheffect("3d",false,delthese)
-	isyou4 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
-	
+	isyou42 = getunitswitheffect("alive",false,delthese) -- EDIT: add ALIVE units
+	isyou4 = getunitswitheffect("puppet", false, delthese)
+	isyou5 = getunitswitheffect("youplus", false, delthese)
+
 	for i,v in ipairs(isyou2) do
 		table.insert(isyou, v)
 	end
@@ -1516,10 +1937,18 @@ function block(small_)
 		table.insert(isyou, v)
 	end
 	
-	for i,v in ipairs(isyou4) do
+	for i,v in ipairs(isyou42) do
 		table.insert(isyou, v)
 	end
-	
+
+	for i, v in ipairs(isyou4) do
+		table.insert(isyou, v)
+	end
+
+	for i, v in ipairs(isyou5) do
+		table.insert(isyou, v)
+	end
+
 	for id,unit in ipairs(isyou) do
 		if (unit.flags[DEAD] == false) and (delthese[unit.fixed] == nil) then
 			local x,y = unit.values[XPOS],unit.values[YPOS]
@@ -1680,11 +2109,21 @@ function block(small_)
 	GLOBAL_disable_guard_checking = false
 	
 	if (small == false) then
+
+		--@mods(eternal)
 		local iscrash = getunitswitheffect("crash",false,delthese)
 		
-		if (#iscrash > 0) then
+		if (#iscrash > 0) and (not et_ignoreinfloop) then
 			HACK_INFINITY = 200
 			destroylevel("infinity")
+			return
+		end
+
+		local isntpresent = getunitswitheffect("not present", false, delthese) -- Bruh what a way to use the function
+
+		if (#isntpresent > 0) then
+			HACK_INFINITY = -1
+			destroylevel("paradox")
 			return
 		end
 	end
@@ -1698,6 +2137,7 @@ function levelblock()
 	--[[ 
 		@mods(text splicing) - Override reason: provide hook for handling level cutting. Levelblock is mainly for handling "X on level" interactions.
 		@mods(guard) - Override reason: handle level guarding
+		@mods(extrem) - Override reason: LEVEL IS TOXIC WHERE???
 	]]
 	local unlocked = false
 	local things = {}
@@ -1788,7 +2228,7 @@ function levelblock()
 								elseif (defeatpair == "defeat") then
 									defeat = true
 								end
-							elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d")) and testcond(conds,2,i,j) then
+							elseif ((rule[3] == "you") or (rule[3] == "you2") or (rule[3] == "3d") or (rule[3] == "puppet") or (rule[3] == "youplus")) and testcond(conds,2,i,j) then
 								candefeat = true
 								canwin = true
 								
@@ -2192,7 +2632,27 @@ function levelblock()
 				local conds = rules[2]
 				
 				--MF_alert(rule[1] .. " " .. rule[2] .. " " .. rule[3] .. ", " .. tostring(testcond(conds,1)))
-				
+
+				if rule[2] == "waste" or rule[2] == "trash" and testcond(conds,1) then
+					for i, bunit in ipairs(getunitswitheffect(rule[3])) do
+
+						local b = bunit.fixed
+						if (issafe(b) == false) then
+							local x,y = bunit.values[XPOS],bunit.values[YPOS]
+							generaldata.values[SHAKE] = 4
+
+							local pmult,sound = checkeffecthistory("eat")
+							MF_particles("eat",x,y,5 * pmult,0,3,1,1)
+							setsoundname("removal",1,sound)
+
+							delete(b,x,y)
+
+							levelKarma = true
+						end
+
+					end
+				end
+
 				-- EDIT: cleanse the level karma if it's REPENT
 				if levelKarma and lrepent then
 					ws_setLevelKarma(false)
@@ -2437,7 +2897,10 @@ function levelblock()
 					end
 				end
 				if (rule[1] == "level") and (rule[2] == "defeats") and testcond(conds,1) then
-					if rule[3] == "level" and lsafe == false and (hasfeature("level","is","you",1) ~= nil or hasfeature("level","is","you2",1) ~= nil or hasfeature("level","is","3d",1) ~= nil) then
+					if rule[3] == "level" and lsafe == false and (hasfeature("level","is","you",1) ~= nil
+							or hasfeature("level","is","you2",1) ~= nil
+							or hasfeature("level","is","3d",1) ~= nil
+							or hasfeature("level","is","alive",1) ~= nil) then
 						local pmult,sound = checkeffecthistory("defeat")
 						setsoundname("removal",1,sound)
 						local is_guarded = ack_endangered_unit(level_obj)
@@ -2561,7 +3024,6 @@ function levelblock()
 								for a,unitid in ipairs(unitlists[d]) do
 									local pmult,sound = checkeffecthistory("hot")
 									setsoundname("removal",1,sound)
-
 									local is_guarded = ack_endangered_unit(level_obj)
 									if not is_guarded then
 										destroylevel()
@@ -2576,7 +3038,6 @@ function levelblock()
 						for a,b in ipairs(empties) do
 							local pmult,sound = checkeffecthistory("hot")
 							setsoundname("removal",1,sound)
-
 							local is_guarded = ack_endangered_unit(level_obj)
 							if not is_guarded then
 								destroylevel()
@@ -2962,10 +3423,7 @@ function levelblock()
 					elseif (action == "weak") then
 						for i,unit in ipairs(units) do
 							local name = unit.strings[UNITNAME]
-							if (unit.strings[UNITTYPE] == "text") then
-								name = "text"
-							end
-							
+
 							if floating_level(unit.fixed) and (lsafe == false) then
 								local is_guarded = ack_endangered_unit(level_obj)
 								if not is_guarded then
@@ -3041,6 +3499,27 @@ function levelblock()
 							if not is_guarded then
 								destroylevel()
 								return
+							end
+						end
+					elseif (action == "toxic") then
+						local destroyedSomething = false
+						for _,unit in ipairs(units) do
+							if (issafe(unit.fixed) == false) and (isalkali(unit.fixed) == false) and floating_level(unit.fixed) then
+								destroyedSomething = true
+								local pmult,sound = checkeffecthistory("toxic")
+								MF_particles("smoke",unit.values[XPOS],unit.values[YPOS],5 * pmult,0,1,1,1)
+								generaldata.values[SHAKE] = 2
+								setsoundname("removal",9,sound)
+								delete(unit.fixed)
+							end
+						end
+
+						if destroyedSomething and not lrepent then  -- Do nothing if level is REPENT; destroy the level if it's KARMA and not SAFE; set karma status otherwise
+							if lkarma and (lsafe == false) then
+								destroylevel()
+								return
+							else
+								ws_setLevelKarma()
 							end
 						end
 					elseif (action == "open") then
@@ -3174,11 +3653,7 @@ function levelblock()
 						
 						for a,unit in ipairs(units) do
 							local name = unit.strings[UNITNAME]
-							
-							if (unit.strings[UNITTYPE] == "text") then
-								name = "text"
-							end
-							
+
 							if floating_level(unit.fixed) then
 								if (lsafe == false) then
 									local is_guarded = ack_endangered_unit(level_obj)
@@ -3218,11 +3693,7 @@ function levelblock()
 						
 						for a,unit in ipairs(units) do
 							local name = unit.strings[UNITNAME]
-							
-							if (unit.strings[UNITTYPE] == "text") then
-								name = "text"
-							end
-							
+
 							if floating_level(unit.fixed) then
 								if (lsafe == false) then
 									local is_guarded = ack_endangered_unit(level_obj)
@@ -3330,26 +3801,8 @@ function levelblock()
 							addundo({"bonus",1})
 						end
 					elseif (action == "visit") then
-						local yous = findfeature(nil,"is","you")
-						local yous2 = findfeature(nil,"is","you2")
-						local yous3 = findfeature(nil,"is","3d")
-						
-						if (yous == nil) then
-							yous = {}
-						end
-						
-						if (yous2 ~= nil) then
-							for i,v in ipairs(yous2) do
-								table.insert(yous, v)
-							end
-						end
-						
-						if (yous3 ~= nil) then
-							for i,v in ipairs(yous3) do
-								table.insert(yous, v)
-							end
-						end
-						
+						local yous = ws_findPlayers() -- Replaced long repeated sequence with function
+
 						local canvisit = false
 						
 						if (yous ~= nil) then
@@ -3384,12 +3837,6 @@ function levelblock()
 						end
 					elseif (action == "win") then
 						local yous = ws_findPlayers() -- Replaced long repeated sequence with function
-						
-						if (yous4 ~= nil) then
-							for i,v in ipairs(yous4) do
-								table.insert(yous, v)
-							end
-						end
 						
 						local canwin = false
 						
@@ -3786,7 +4233,7 @@ function levelblock()
 								local yous = findallfeature(nil,"is","you",true)
 								local yous2 = findallfeature(nil,"is","you2",true)
 								local yous3 = findallfeature(nil,"is","3d",true)
-								local yous4 = findallfeature(nil,"is","alive",true)
+								local yous42 = findallfeature(nil,"is","alive",true)
 								
 								if (#yous2 > 0) then
 									for a,b in ipairs(yous2) do
@@ -3800,8 +4247,8 @@ function levelblock()
 									end
 								end
 								
-								if (#yous4 > 0) then
-									for a,b in ipairs(yous4) do
+								if (#yous42 > 0) then
+									for a,b in ipairs(yous42) do
 										table.insert(yous, b)
 									end
 								end
@@ -3964,7 +4411,7 @@ function effectblock()
 				end
 			elseif (#unit.colours == 0) then
 				if (unit.values[A] > 0) and (math.floor(unit.values[A]) == unit.values[A]) then
-					if (unit.strings[UNITTYPE] ~= "text") or (unit.active == false) then
+					if ((unit.strings[UNITTYPE] ~= "text") and (string.sub(unit.strings[UNITNAME],1,6) ~= "glyph_")) or (unit.active == false) then
 						setcolour(unit.fixed)
 					else
 						setcolour(unit.fixed,"active")
@@ -3974,7 +4421,7 @@ function effectblock()
 			else
 				unit.values[A] = ca
 				
-				if (unit.strings[UNITTYPE] == "text") then
+				if (unit.strings[UNITTYPE] == "text") or (string.sub(unit.strings[UNITNAME],1,6) == "glyph_") then
 					local curr = (unit.currcolour % #unit.colours) + 1
 					local c = unit.colours[curr]
 					
@@ -4009,8 +4456,10 @@ function findplayer(undoing)
 	local players1 = findfeature(nil,"is","you")
 	local players2 = findfeature(nil,"is","you2")
 	local players3 = findfeature(nil,"is","3d")
-	local players4 = findfeature(nil,"is","alive") -- Get all ALIVE features
-	
+	local players24 = findfeature(nil,"is","alive") -- Get all ALIVE features
+	local players4 = findfeature(nil, "is", "puppet")
+	local players5 = findfeature(nil, "is", "youplus")
+
 	local vessels = findfeature(nil,"is","vessel") or {} -- Get all VESSEL features (used to keep music if option is enabled)
 	local vessels2 = findfeature(nil,"is","vessel2") or {}
 	
@@ -4027,8 +4476,20 @@ function findplayer(undoing)
 		end
 	end
 	
-	if (players4 ~= nil) then -- Add ALIVE features to the list of 2D players
-		for i,v in ipairs(players4) do
+	if (players24 ~= nil) then -- Add ALIVE features to the list of 2D players
+		for i,v in ipairs(players24) do
+			table.insert(players, v)
+		end
+	end
+
+	if (players4 ~= nil) then
+		for i, v in ipairs(players4) do
+			table.insert(players, v)
+		end
+	end
+
+	if (players5 ~= nil) then
+		for i, v in ipairs(players5) do
 			table.insert(players, v)
 		end
 	end
@@ -4119,4 +4580,119 @@ function findplayer(undoing)
 		MF_musicstate(1)
 		generaldata2.values[NOPLAYER] = 1
 	end
+end
+
+function startblock(light_)
+	local light = light_ or false
+	diceblock()
+	
+	if (light == false) then
+		generaldata5.values[AUTO_ON] = 0
+		
+		destroylevel_check = false
+		destroylevel_style = ""
+		
+		if (featureindex["level"] ~= nil) then
+			local auto_on = hasfeature_count("level","is","auto",1)
+			
+			if (auto_on ~= nil) then
+				generaldata5.values[AUTO_ON] = auto_on
+			end
+		end
+	end
+	
+	if (light == false) and (featureindex["level"] ~= nil) then
+		MF_levelrotation(0)
+		maprotation = 0
+		for i,v in ipairs(featureindex["level"]) do
+			local rule = v[1]
+			local conds = v[2]
+			
+			if testcond(conds,1) then
+				if (rule[1] == "level") and (rule[2] == "is") then
+					if (rule[3] == "right") then
+						maprotation = 90
+						mapdir = 0
+						MF_levelrotation(90)
+					elseif (rule[3] == "up") then
+						maprotation = 180
+						mapdir = 1
+						MF_levelrotation(180)
+					elseif (rule[3] == "left") then
+						maprotation = 270
+						mapdir = 2
+						MF_levelrotation(270)
+					elseif (rule[3] == "down") then
+						maprotation = 0
+						mapdir = 3
+						MF_levelrotation(0)
+					end
+				end
+			end
+		end
+	end
+	
+	for i,unit in ipairs(units) do
+		local name = unit.strings[UNITNAME]
+		local unitid = unit.fixed
+		local unitrules = {}
+		
+		--[[ Remove to support metatext
+		if (unit.strings[UNITTYPE] == "text") then
+			name = "text"
+		end]]--
+
+		if (featureindex[name] ~= nil) then
+			for a,b in ipairs(featureindex[name]) do
+				local conds = b[2]
+				
+				if testcond(conds,unitid) then
+					table.insert(unitrules, b)
+				end
+			end
+			
+			--local isfollow = xthis(unitrules,name,"follow")
+			local isfloat = isthis(unitrules,"float")
+			local sleep = isthis(unitrules,"sleep")
+			local ismake = xthis(unitrules,name,"make")
+			
+			--[[
+			local isright = isthis(unitrules,"right")
+			local isup = isthis(unitrules,"up")
+			local isleft = isthis(unitrules,"left")
+			local isdown = isthis(unitrules,"down")
+			
+			if (sleep == false) then
+				if isright then
+					updatedir(unit.fixed,0)
+				end
+				if isup then
+					updatedir(unit.fixed,1)
+				end
+				if isleft then
+					updatedir(unit.fixed,2)
+				end
+				if isdown then
+					updatedir(unit.fixed,3)
+				end
+			end
+			]]--
+			
+			if isfloat then
+				unit.values[FLOAT] = 1
+			end
+			
+			if sleep then
+				if (unit.values[TILING] == 2) then
+					unit.values[VISUALDIR] = -1
+					unit.direction = ((unit.values[DIR] * 8 + unit.values[VISUALDIR]) + 32) % 32
+				end
+			end
+		end
+	end
+	
+	moveblock(true)
+	effectblock()
+	
+	newundo()
 end

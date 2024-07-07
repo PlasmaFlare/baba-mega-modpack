@@ -29,8 +29,26 @@ local plasma_modpack_settings = {
         buttonfunc = "pfchainguard",
         tooltip = "Disables recursive guarding. This makes GUARD simpler to figure out in puzzles but reduces complex guarding interactions."
     },
+    enable_metacut = {
+        display = "Cut text will remain meta level",
+        value = false,
+        buttonfunc = "pfmetacut",
+        tooltip = "Cut text will now have text_ before them to remain their meta levels. E.g. text_text_baba -> text_text_/text_baba"
+    },
+    this_nometa = {
+        display = "This referring to a text refers to general text",
+        value = false,
+        buttonfunc = "pforthothis",
+        tooltip = "This pointing to a text won't use the unitname of it, but always use the general text word. Enable if you want to keep vanilla behavior."
+    },
+    underline_refers = {
+        display = "Cutting text_ gives refers and text",
+        value = false,
+        buttonfunc = "pfrefersjoke",
+        tooltip = "Cutting a text_ prefix now gives you text_text and text_refers and vice versa with packing."
+    },
 }
-local settings_order = {"disable_dir_shift", "disable_stable_display", "disable_guard_chain"}
+local settings_order = {"disable_dir_shift", "disable_stable_display", "disable_guard_chain", "enable_metacut", "this_nometa", "underline_refers"}
 
 local gd = nil
 function PlasmaSettings.get_toggle_setting(setting)

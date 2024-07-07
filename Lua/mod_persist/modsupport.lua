@@ -123,6 +123,8 @@ function getreverts(unit)
 end
 
 --permanently add rules made from text with the "baserule" property. for optimisation doesn't care about conditions. this is easy to fix though
+pe_ignoreconds = true
+
 function findpersistrules()
 	for i,rules in ipairs(visualfeatures) do
 		local conds = rules[2]
@@ -140,9 +142,9 @@ function findpersistrules()
 		end
 		
 
-		if (fullpersist == true) and (#conds==0) then
+		if (fullpersist == true) and ((not pe_ignoreconds) or #conds==0) then
 			--do not persist rules that are disabled
-			if not hasfeature(rules[1][1],rules[1][2],"not "..rules[1][3]) and not (objectlist[rules[1][3]] ~= nil and hasfeature(rules[1][1],"is",rules[1][1])) then
+			if not hasfeature(rules[1][1],rules[1][2],"not "..rules[1][3]) and not (objectlist[rules[1][3]] ~= nil and hasfeature(rules[1][1],"is",rules[1][1]) and (rules[1][1] ~= rules[1][3])) then
 				table.insert(persistbaserulestoadd,{rules[1][1],rules[1][2],rules[1][3]})
 			end
 		end
@@ -169,6 +171,7 @@ function findpersists(reason)
 		prevlevelpersist = {}
 	end
 	findpersistrules()
+	fillkeepruleslist()
 	--update persistent object info
 	persists = {}
 	levelpersist = {}
@@ -198,6 +201,12 @@ function findpersists(reason)
 	end
 end
 
+function trygeneratepair(name)
+	if findnoun(name,nil,true) == false then
+		tryautogenerate(name)
+		--tryautogenerate("text_"..name)
+	end
+end
 
 table.insert(mod_hook_functions["level_start"], 
 	function()
@@ -328,15 +337,15 @@ editor_objlist["text_persist"] =
 
 -- @Merge: Word Glossary Mod support
 if keys.IS_WORD_GLOSSARY_PRESENT then
-    keys.WORD_GLOSSARY_FUNCS.register_author("Randomizer", {0,3} )
-    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
-        {
-            name = "persist",
-            author = "Randomizer",
-            description =
-[[When switching from one level to another, objects that are "PERSIST" will also move to the next level, retaining their position and state from the previous level.
-        
-- If an object PERSISTs onto a level that doesn't have the object in its palette, the "PERSIST" object shows as an error instead.]]
-        }
-    })
+	keys.WORD_GLOSSARY_FUNCS.register_author("Randomizer", {0,3} )
+	keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+		{
+			name = "persist",
+			author = "Randomizer",
+			description =
+			[[When switching from one level to another, objects that are "PERSIST" will also move to the next level, retaining their position and state from the previous level.
+
+            - If an object PERSISTs onto a level that doesn't have the object in its palette, the "PERSIST" object shows as an error instead.]]
+		}
+	})
 end

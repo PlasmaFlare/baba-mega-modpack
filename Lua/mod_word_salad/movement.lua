@@ -1,4 +1,4 @@
--- OVERRIDE: implement VESSEL, add karma for WEAK bumping into obstacle, implement HOP and BOOST/BOOSTS
+-- OVERRIDE: implement VESSEL, add karma for WEAK bumping into obstacle, implement HOP
 
 --[[ @Merge: movecommand() was merged ]]
 

@@ -12,6 +12,10 @@ condlist.on = function(params,checkedconds,checkedconds_,cdata)
 		if (#params > 0) then
 			for a,b in ipairs(params) do
 				local pname = b
+				local metaparam = false
+				if (string.sub(pname, 1, 6) == "glyph_") or (string.sub(pname, 1, 5) == "text_") then
+					metaparam = true
+				end
 				local pnot = false
 				if (string.sub(b, 1, 4) == "not ") then
 					pnot = true
@@ -32,7 +36,10 @@ condlist.on = function(params,checkedconds,checkedconds_,cdata)
 							for c,d in ipairs(unitmap[tileid]) do
 								if (d ~= unitid) and (alreadyfound[d] == nil) then
 									local unit = mmf.newObject(d)
-									local name_ = getname(unit)
+									local name_ = getname(unit,pname,pnot)
+									if metaparam then
+										name_ = unit.strings[UNITNAME]
+									end
 									
 									if (pnot == false) then
 										if is_param_this then
@@ -151,12 +158,12 @@ condlist.on = function(params,checkedconds,checkedconds_,cdata)
 						if (surrounds["o"] ~= nil) then
 							for c,d in ipairs(surrounds["o"]) do
 								if (pnot == false) then
-									if (d == pname) and (alreadyfound[bcode] == nil) then
+									if d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
 								else
-									if (d ~= pname) and (alreadyfound[bcode] == nil) then
+									if d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
@@ -225,8 +232,8 @@ condlist.near = function(params,checkedconds,checkedconds_,cdata)
 									for c,d in ipairs(unitmap[tileid]) do
 										if (d ~= unitid) and (alreadyfound[d] == nil) then
 											local unit = mmf.newObject(d)
-											local name_ = getname(unit)
-											
+											local name_ = getname(unit, pname, pnot)
+
 											if (pnot == false) then
 												if is_param_this then
 													if raycast_units[d] and alreadyfound[bcode] == nil then
@@ -366,12 +373,12 @@ condlist.near = function(params,checkedconds,checkedconds_,cdata)
 						if (e ~= "dir") then
 							for c,d in ipairs(f) do
 								if (pnot == false) then
-									if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+									if (ulist == false) and d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
 								else
-									if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+									if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
@@ -404,6 +411,10 @@ condlist.nextto = function(params,checkedconds,checkedconds_,cdata)
 	if (#params > 0) then
 		for a,b in ipairs(params) do
 			local pname = b
+			local metaparam = false
+			if (string.sub(pname, 1, 6) == "glyph_") or (string.sub(pname, 1, 5) == "text_") then
+				metaparam = true
+			end
 			local pnot = false
 			if (string.sub(b, 1, 4) == "not ") then
 				pnot = true
@@ -429,7 +440,10 @@ condlist.nextto = function(params,checkedconds,checkedconds_,cdata)
 										for c,d in ipairs(unitmap[tileid]) do
 											if (d ~= unitid) and (alreadyfound[d] == nil) then
 												local unit = mmf.newObject(d)
-												local name_ = getname(unit)
+												local name_ = getname(unit,pname,pnot)
+												if metaparam then
+													name_ = unit.strings[UNITNAME]
+												end
 												
 												if (pnot == false) then
 													if is_param_this then
@@ -566,12 +580,12 @@ condlist.nextto = function(params,checkedconds,checkedconds_,cdata)
 						if (e ~= "dir") and (e ~= "o") then
 							for c,d in ipairs(f) do
 								if (pnot == false) then
-									if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+									if (ulist == false) and d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
 								else
-									if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+									if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 										alreadyfound[bcode] = 1
 										ulist = true
 									end
@@ -636,7 +650,7 @@ condlist.facing = function(params,checkedconds,checkedconds_,cdata)
 							for c,d in ipairs(unitmap[tileid]) do
 								if (d ~= unitid) and (alreadyfound[d] == nil) then
 									local unit = mmf.newObject(d)
-									local name_ = getname(unit)
+									local name_ = getname(unit,pname,pnot)
 									
 									if (pnot == false) then
 										if is_param_this then
@@ -715,12 +729,12 @@ condlist.facing = function(params,checkedconds,checkedconds_,cdata)
 				if (surrounds[dirid] ~= nil) then
 					for c,d in ipairs(surrounds[dirid]) do
 						if (pnot == false) then
-							if (d == pname) and (alreadyfound[bcode] == nil) then
+							if d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 								alreadyfound[bcode] = 1
 								allfound = allfound + 1
 							end
 						else
-							if (d ~= pname) and (alreadyfound[bcode] == nil) then
+							if d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 								alreadyfound[bcode] = 1
 								allfound = allfound + 1
 							end
@@ -774,7 +788,7 @@ condlist.seeing = function(params,checkedconds,checkedconds_,cdata)
 						
 						for a,b in ipairs(unitmap[tileid]) do
 							local unit = mmf.newObject(b)
-							local name_ = getname(unit)
+							local name_ = getname(unit,pname,pnot)
 							
 							if (hasfeature(name_,"is","hide",b,nx,ny,checkedconds) == nil) then
 								table.insert(targets, {b, name_})
@@ -881,12 +895,12 @@ condlist.seeing = function(params,checkedconds,checkedconds_,cdata)
 				if (surrounds[dirid] ~= nil) then
 					for c,d in ipairs(surrounds[dirid]) do
 						if (pnot == false) then
-							if (d == pname) and (alreadyfound[bcode] == nil) then
+							if d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 								alreadyfound[bcode] = 1
 								allfound = allfound + 1
 							end
 						else
-							if (d ~= pname) and (alreadyfound[bcode] == nil) then
+							if d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 								alreadyfound[bcode] = 1
 								allfound = allfound + 1
 							end
@@ -954,7 +968,7 @@ condlist.without = function(params,checkedconds,checkedconds_,cdata)
 						elseif (unitlists[b] ~= nil) and (#unitlists[b] > 0) then
 							local found = false
 							
-							if (b ~= name) then
+							if (b ~= name) and (b ~= "text" or string.sub(name,1,5) ~= "text_") and ("meta" .. getmetalevel(name) ~= b) then
 								if (#unitlists[b] < unitcount[b]) then
 									found = true
 								end
@@ -975,7 +989,11 @@ condlist.without = function(params,checkedconds,checkedconds_,cdata)
 					local targetcount = unitcount[b]
 					
 					for c,d in pairs(unitlists) do
-						if (c ~= pname) and (#unitlists[c] > 0) and (c ~= "text") and (string.sub(c, 1, 5) ~= "text_") then
+						if (c ~= pname) and (#unitlists[c] > 0) and (
+						(findnoun(c,nlist.short) == false and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta")
+						or (string.sub(pname,1,5) == "text_" and string.sub(c,1,5) == "text_")
+						or (string.sub(pname,1,4) == "meta" and string.sub(c,1,4) == "meta" and (metatext_includenoun or c ~= "meta-1"))
+						) then
 							for e,f in ipairs(d) do
 								if (f ~= unitid) and (alreadyfound[f] == nil) then
 									alreadyfound[f] = 1
@@ -1064,7 +1082,7 @@ condlist.above = function(params,checkedconds,checkedconds_,cdata)
 									for c,d in ipairs(unitmap[tileid]) do
 										if (d ~= unitid) and (alreadyfound[d] == nil) then
 											local unit = mmf.newObject(d)
-											local name_ = getname(unit)
+											local name_ = getname(unit,pname,pnot)
 											
 											if (pnot == false) then
 												if is_param_this then
@@ -1191,12 +1209,12 @@ condlist.above = function(params,checkedconds,checkedconds_,cdata)
 					if (surrounds.d ~= nil) then
 						for c,d in ipairs(surrounds.d) do
 							if (pnot == false) then
-								if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
 							else
-								if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") or (pname == "glyph" and string.sub(d,1,6) == "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
@@ -1254,7 +1272,7 @@ condlist.below = function(params,checkedconds,checkedconds_,cdata)
 									for c,d in ipairs(unitmap[tileid]) do
 										if (d ~= unitid) and (alreadyfound[d] == nil) then
 											local unit = mmf.newObject(d)
-											local name_ = getname(unit)
+											local name_ = getname(unit,pname,pnot)
 											
 											if (pnot == false) then
 												if is_param_this then
@@ -1381,12 +1399,12 @@ condlist.below = function(params,checkedconds,checkedconds_,cdata)
 					if (surrounds.u ~= nil) then
 						for c,d in ipairs(surrounds.u) do
 							if (pnot == false) then
-								if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= "-" and (d == pname or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or (pname == "text" and string.sub(d,1,5) == "text_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
 							else
-								if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
@@ -1444,7 +1462,7 @@ condlist.besideright = function(params,checkedconds,checkedconds_,cdata)
 									for c,d in ipairs(unitmap[tileid]) do
 										if (d ~= unitid) and (alreadyfound[d] == nil) then
 											local unit = mmf.newObject(d)
-											local name_ = getname(unit)
+											local name_ = getname(unit,pname,pnot)
 											
 											if (pnot == false) then
 												if is_param_this then
@@ -1571,12 +1589,12 @@ condlist.besideright = function(params,checkedconds,checkedconds_,cdata)
 					if (surrounds.l ~= nil) then
 						for c,d in ipairs(surrounds.l) do
 							if (pnot == false) then
-								if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= "-" and (d == pname or (pname == "text" and string.sub(d,1,5) == "text_") or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
 							else
-								if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
@@ -1634,7 +1652,7 @@ condlist.besideleft = function(params,checkedconds,checkedconds_,cdata)
 									for c,d in ipairs(unitmap[tileid]) do
 										if (d ~= unitid) and (alreadyfound[d] == nil) then
 											local unit = mmf.newObject(d)
-											local name_ = getname(unit)
+											local name_ = getname(unit,pname,pnot)
 											
 											if (pnot == false) then
 												if is_param_this then
@@ -1761,12 +1779,12 @@ condlist.besideleft = function(params,checkedconds,checkedconds_,cdata)
 					if (surrounds.r ~= nil) then
 						for c,d in ipairs(surrounds.r) do
 							if (pnot == false) then
-								if (ulist == false) and (d == pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= "-" and (d == pname or (pname == "text" and string.sub(d,1,5) == "text_") or (pname == "glyph" and string.sub(d,1,6) == "glyph_") or ("meta" .. getmetalevel(d) == pname)) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
 							else
-								if (ulist == false) and (d ~= pname) and (alreadyfound[bcode] == nil) then
+								if (ulist == false) and d ~= pname and (((pname ~= "text" or string.sub(d,1,5) ~= "text_") and (pname ~= "glyph" or string.sub(d,1,6) ~= "glyph_") and string.sub(pname,1,5) ~= "text_" and string.sub(pname,1,4) ~= "meta") or (string.sub(pname,1,5) == "text_" and string.sub(d,1,5) == "text_") or ("meta"..getmetalevel(d) ~= pname and (metatext_includenoun or getmetalevel(d) >= 0))) and (alreadyfound[bcode] == nil) then
 									alreadyfound[bcode] = 1
 									ulist = true
 								end
@@ -1878,4 +1896,392 @@ condlist.feeling = function(params,checkedconds,checkedconds_,cdata)
 	end
 	
 	return (allfound == #params),checkedconds,true
+end
+
+condlist.powered = function(params,checkedconds,checkedconds_,cdata) --To correctly handle TEXT IS POWER and META# IS POWER
+	local found = false
+	local x,y,limit,subtype,conds = cdata.x,cdata.y,cdata.limit,cdata.subtype,tostring(cdata.conds)
+	local fullname = "power" .. subtype
+	
+	if (poweredstatus[fullname] ~= nil) then
+		found = poweredstatus[fullname]
+		-- MF_alert("Old solution: " .. tostring(found) .. " " .. fullname)
+	elseif (featureindex[fullname] ~= nil) then
+		for c,d in ipairs(featureindex[fullname]) do
+			local drule = d[1]
+			local dconds = d[2]
+			
+			if (checkedconds[tostring(dconds)] == nil) then
+				if (string.sub(drule[1], 1, 4) ~= "not ") and (drule[2] == "is") and (drule[3] == fullname) then
+					if (drule[1] ~= "empty") and (drule[1] ~= "level") and (drule[1] ~= "text") and (string.sub(drule[1],1,4) ~= "meta") then -- the changed line
+						if (unitlists[drule[1]] ~= nil) then
+							checkedconds[tostring(dconds)] = 1
+							
+							for e,f in ipairs(unitlists[drule[1]]) do
+								if testcond(dconds,f,x,y,nil,limit,checkedconds) then
+									found = true
+									break
+								end
+							end
+						end
+					elseif (drule[1] == "empty") then
+						local empties = findempty(dconds,true)
+						
+						if (#empties > 0) then
+							found = true
+						end
+					elseif (drule[1] == "level") and testcond(dconds,1,x,y,nil,limit,checkedconds) then
+						found = true
+					end
+				end
+			end
+			
+			if found then
+				break
+			end
+		end
+		
+		-- MF_alert("New solution: " .. tostring(found) .. " " .. fullname)
+	end
+	
+	checkedconds = checkedconds_ or {[tostring(conds)] = 1}
+	
+	if (checkedconds_ == nil) and (poweredstatus[fullname] == nil) then
+		-- MF_alert("Status set: " .. tostring(found) .. " " .. fullname)
+		poweredstatus[fullname] = found
+	end
+	
+	return found,checkedconds,true
+end
+
+function testcond(conds,unitid,x_,y_,autofail_,limit_,checkedconds_,ignorebroken_,subgroup_)
+	local result = true
+
+	local orhandling = false
+	local orresult = false
+
+	local x,y,name,dir,broken = 0,0,"",4,0
+	local surrounds = {}
+	local autofail = autofail_ or {}
+	local limit = limit_ or 0
+
+	limit = limit + 1
+	if (limit > 80) then
+		HACK_INFINITY = 200
+		destroylevel("infinity")
+		return
+	end
+
+	local checkedconds = {}
+	local ignorebroken = ignorebroken_ or false
+	local subgroup = subgroup_ or {}
+
+	if (checkedconds_ ~= nil) then
+		for i,v in pairs(checkedconds_) do
+			checkedconds[i] = v
+		end
+	end
+
+	if (#features == 0) then
+		return false
+	end
+
+	-- 0 = bug, 1 = level, 2 = empty
+
+	if (unitid ~= 0) and (unitid ~= 1) and (unitid ~= 2) and (unitid ~= nil) then
+		local unit = mmf.newObject(unitid)
+		x = unit.values[XPOS]
+		y = unit.values[YPOS]
+		name = unit.strings[UNITNAME]
+		dir = unit.values[DIR]
+		broken = unit.broken or 0
+
+		--[[ Remove to support metatext
+		if (unit.strings[UNITTYPE] == "text") then
+			name = "text"
+		end]]--
+	elseif (unitid == 2) then
+		x = x_
+		y = y_
+		name = "empty"
+		broken = 0
+
+		if (featureindex["broken"] ~= nil) and (ignorebroken == false) and (checkedconds[tostring(conds)] == nil) then
+			checkedconds[tostring(conds)] = 1
+			broken = isitbroken("empty",2,x,y,checkedconds)
+		end
+	elseif (unitid == 1) then
+		name = "level"
+		surrounds = parsesurrounds()
+		dir = tonumber(surrounds.dir) or 4
+		broken = 0
+
+		if (featureindex["broken"] ~= nil) and (ignorebroken == false) and (checkedconds[tostring(conds)] == nil) then
+			checkedconds[tostring(conds)] = 1
+			broken = isitbroken("level",1,x,y,checkedconds)
+		end
+	end
+
+	checkedconds[tostring(conds)] = 1
+	checkedconds[tostring(conds) .. "_s_"] = 1
+
+	if (unitid == 0) or (unitid == nil) then
+		print("WARNING!! Unitid is " .. tostring(unitid))
+	end
+
+	if ignorebroken then
+		broken = 0
+	end
+
+	if (broken == 1) then
+		result = false
+	end
+
+	if (conds ~= nil) and ((broken == nil) or (broken == 0)) then
+		if (#conds > 0) then
+			local valid = false
+
+			for i,cond in ipairs(conds) do
+				local condtype = cond[1]
+				local params_ = cond[2]
+				local params = {}
+
+				local extras = {}
+
+				if (string.sub(condtype, 1, 1) == "(") then
+					condtype = string.sub(condtype, 2)
+					orhandling = true
+					orresult = false
+				end
+
+				if (string.sub(condtype, -1) == ")") then
+					condtype = string.sub(condtype, 1, string.len(condtype) - 1)
+				end
+
+				local basecondtype = string.sub(condtype, 1, 4)
+				local notcond = false
+
+				if (basecondtype == "not ") then
+					basecondtype = string.sub(condtype, 5)
+					notcond = true
+				else
+					basecondtype = condtype
+				end
+
+				if (condtype ~= "never") then
+					local condname = unitreference["text_" .. basecondtype]
+
+					local conddata = conditions[condname] or {}
+					if (conddata.argextra ~= nil) then
+						extras = conddata.argextra
+					end
+				end
+
+				for a,b in ipairs(autofail) do
+					if (condtype == b) then
+						result = false
+						valid = true
+					end
+				end
+
+				if (result == false) and valid then
+					break
+				end
+
+				if (params_ ~= nil) then
+					local handlegroup = false
+
+					for a,b in ipairs(params_) do
+						--[[ Test most specific to least specific
+						NOUN -> (NOT) META# -> NOT NOUN+TEXT
+						]]
+						if (string.sub(b, 1, 4) == "not ") or b == "text" then
+							table.insert(params, b)
+						elseif (string.sub(b, 1, 4) == "meta") or (string.sub(b, 1, 8) == "not meta") then
+							local insert = #params
+							if insert < 2 then
+								local param = params[1] or ""
+								if param ~= "text" and (string.sub(param, 1, 4) ~= "not ") then
+									table.insert(params, b)
+								else
+									table.insert(params, 1, b)
+								end
+							else
+								while insert > 1 do
+									local param = params[insert]
+									if param ~= "text" and (string.sub(param, 1, 4) ~= "not ") then
+										break
+									end
+									insert = insert - 1
+								end
+								table.insert(params, insert + 1, b)
+							end
+						else
+							table.insert(params, 1, b)
+						end
+
+						if (string.sub(b, 1, 5) == "group") or (string.sub(b, 1, 9) == "not group") then
+							handlegroup = true
+						end
+					end
+
+					local removegroup = {}
+					local removegroupoffset = 0
+
+					if handlegroup then
+						local plimit = #params
+
+						for a=1,plimit do
+							local b = params[a]
+							local mem = subgroup_
+							local notnoun = false
+
+							if (string.sub(b, 1, 5) == "group") then
+								if (mem == nil) then
+									mem = findgroup(b,false,limit,checkedconds,metatext_fixquirks)
+								end
+								table.insert(removegroup, a)
+							elseif (string.sub(b, 1, 9) == "not group") then
+								notnoun = true
+
+								if (mem == nil) then
+									mem = findgroup(string.sub(b, 5),true,limit,checkedconds,metatext_fixquirks)
+								else
+									local memfound = {}
+
+									for c,d in ipairs(mem) do
+										memfound[d] = 1
+									end
+
+									mem = {}
+
+									for c,mat in pairs(objectlist) do
+										if (memfound[c] == nil) and (findnoun(c,nlist.short) == false) then
+											table.insert(mem, c)
+										end
+									end
+								end
+								table.insert(removegroup, a)
+							end
+
+							if (mem ~= nil) then
+								for c,d in ipairs(mem) do
+									if notnoun or d == "text" then
+										table.insert(params, d)
+									elseif (string.sub(d, 1, 4) == "meta") then
+										local insert = #params
+										if insert < 2 then
+											local param = params[1] or ""
+											if param ~= "text" and (string.sub(param, 1, 4) ~= "not ") then
+												table.insert(params, d)
+											else
+												table.insert(params, 1, d)
+											end
+										else
+											while insert > 1 do
+												local param = params[insert]
+												if param ~= "text" and (string.sub(param, 1, 4) ~= "not ") then
+													break
+												end
+												insert = insert - 1
+											end
+											table.insert(params, insert + 1, d)
+										end
+									else
+										table.insert(params, 1, d)
+										removegroupoffset = removegroupoffset - 1
+									end
+								end
+							end
+
+							if (mem == nil) or (#mem == 0) then
+								table.insert(params, "_NONE_")
+								break
+							end
+						end
+
+						for a,b in ipairs(removegroup) do
+							table.remove(params, b - removegroupoffset)
+							removegroupoffset = removegroupoffset + 1
+						end
+					end
+				end
+
+				local condsubtype = ""
+
+				if (string.sub(basecondtype, 1, 7) == "powered") then
+					for a,b in pairs(condlist) do
+						if (#basecondtype > #a) and (string.sub(basecondtype, 1, #a) == a) then
+							condsubtype = string.sub(basecondtype, #a + 1)
+							basecondtype = string.sub(basecondtype, 1, #a)
+							break
+						end
+					end
+				end
+
+				if (condlist[basecondtype] ~= nil) then
+					valid = true
+
+					local cfunc = condlist[basecondtype]
+					local subresult = true
+					local ccc = false
+					local cdata = {name = name, x = x, y = y, unitid = unitid, dir = dir, extras = extras, limit = limit, conds = conds, subtype = condsubtype, i = i, surrounds = surrounds, notcond = notcond, debugname = cond[1]}
+					subresult,checkedconds,ccc = cfunc(params,checkedconds,checkedconds_,cdata)
+					local clearcconds = ccc or false
+					
+					if notcond then
+						subresult = not subresult
+					end
+					
+					if subresult and clearcconds then
+						checkedconds = {}
+						
+						if (checkedconds_ ~= nil) then
+							for i,v in pairs(checkedconds_) do
+								checkedconds[i] = v
+							end
+						end
+						
+						checkedconds[tostring(conds)] = 1
+						checkedconds[tostring(conds) .. "_s_"] = 1
+					end
+
+					if (subresult == false) then
+						if (orhandling == false) then
+							result = false
+							break
+						end
+					elseif orhandling then
+						orresult = true
+					end
+				else
+					MF_alert("condtype " .. tostring(condtype) .. " doesn't exist?")
+					result = false
+					break
+				end
+
+				if (string.sub(cond[1], -1) == ")") then
+					orhandling = false
+
+					if (orresult == false) then
+						result = false
+						break
+					else
+						result = true
+					end
+				end
+			end
+
+			if (valid == false) then
+				MF_alert("invalid condition!")
+				result = true
+
+				for a,b in ipairs(conds) do
+					MF_alert(tostring(b[1]))
+				end
+			end
+		end
+	end
+
+	return result
 end

@@ -42,20 +42,22 @@ formatobjlist()
 
 -- @Merge: Word Glossary Mod support
 if keys.IS_WORD_GLOSSARY_PRESENT then
-    keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
-    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
-        {
-            name = "visit",
+	keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
+	keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+		{
+			name = "visit",
 			author = "Btd456creeper",
 			description =
-[[Changes the current level to the level directly adjacent to it in the parent level of the current level.
+			[[Changes the current level to the level directly adjacent to it in the parent level of the current level.
 
-- This effect applies when a you object moves onto a visit object.
+            - This effect applies when a you object moves onto a visit object.
 
-- The direction of the visit object determines which direction to look for an adjacent level. If there isn't an adjacent level, the current level gets destroyed instead.]],
-        }
-    })
+            - The direction of the visit object determines which direction to look for an adjacent level. If there isn't an adjacent level, the current level gets destroyed instead.]],
+		}
+	})
 end
+
+
 
 --The code that actually performs a visit, based on levelsurrounds and the direction of the Visit object.
 function dovisit(visitdir)
@@ -154,7 +156,6 @@ function dovisit(visitdir)
 					leveltype = v
 					
 					findpersists() -- @Merge(Visit x Persist): support for persisting objects via visit
-					-- @nocommit - does it matter exactly when to call findpersists() in relation to calling uplevel() and sublevel()?
 
 					if parentlevel ~= generaldata.strings[CURRLEVEL] then
 						uplevelkeepsurrounds()

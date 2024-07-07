@@ -16,7 +16,7 @@ local function get_special_cut_mappings()
         nudgedown =      "nudge",
         ellipsis =       "ooo",    
         besideright =    "beside",    
-        besideleft =     "beside",    
+        besideleft =     "beside",
     }
 
     -- Arrow properties
@@ -43,7 +43,8 @@ end
 
 local function get_special_pack_mappings()
     local pack_mappings = {
-        ooo = "ellipsis"
+        ooo = "ellipsis",
+        textrefers = "text_"
     }
 
     for turning_prop, _ in pairs(turning_word_names) do
@@ -97,19 +98,15 @@ end
 
 local function get_valid_characters()
     local valid_chars = {}
-    for text_name, object in pairs(objectpalette) do
-        local type = getactualdata_objlist(object, "type")
-        local unittype = getactualdata_objlist(object, "unittype")
-        
-        if type == 5 and unittype == "text" then
-            if string.sub(text_name, 1, 5) == "text_" then
-                local character = string.sub(text_name, 6)
-                if string.sub(character, 1, 5) ~= "text_" then -- Prevent metatext letters from being counted
-                    valid_chars[character] = true
-                end
+    for i, v in pairs(editor_objlist) do
+        if (v.type == 5 and v.unittype == "text") then
+            if string.sub(v.name, 1, 5) == "text_" then
+                local character = string.sub(v.name, 6)
+                valid_chars[character] = true
             end
         end
     end
+    valid_chars["text_"] = true
     return valid_chars
 end
 
@@ -152,6 +149,19 @@ function CutPackWordVerify:get_cut_text(name, text_dir, cut_direction)
     local t = special_cut_mappings[name]
     if t then return t end
 
+    local metalayer = 0
+
+    -- @Merge(METATEXT)
+    if name ~= "text_" then
+        while string.sub(name, 1, 5) == "text_" do
+            name = string.sub(name, 6)
+            metalayer = metalayer + 1 -- @Change(Better Cutting)
+            if name == "text_" then
+                break
+            end
+        end
+    end
+
     -- THIS
     local pointer_noun = is_name_text_this(name, false)
     if pointer_noun then
@@ -179,7 +189,7 @@ function CutPackWordVerify:get_cut_text(name, text_dir, cut_direction)
         end
     end
 
-    return name
+    return name, metalayer -- @Change(Better Cutting)
 end
 
 

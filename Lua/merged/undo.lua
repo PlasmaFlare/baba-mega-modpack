@@ -29,7 +29,10 @@ function undo()
 						local unitid = getunitid(line[9])
 						
 						local unit = mmf.newObject(unitid) --paradox-proofing
-
+						local unitname = nil
+						if (unit ~= nil) then
+							local unitname = getname(unit)
+						end
 						if unit ~= nil and not unit_ignores_undos(unitid) then
 							local oldx,oldy = unit.values[XPOS],unit.values[YPOS]
 							local x,y,dir = line[3],line[4],line[5]
@@ -54,12 +57,14 @@ function undo()
 								unit.direction = unit.values[DIR] * 8 + unit.values[VISUALDIR]
 							end
 							
-							if (unit.strings[UNITTYPE] == "text") then
+							if (unit.strings[UNITTYPE] == "text") or isglyph(unit) then
 								updatecode = 1
 							end
 							
 							local undowordunits = currentundo.wordunits
 							local undowordrelatedunits = currentundo.wordrelatedunits
+							local undosymbolunits = currentundo.symbolunits
+							local undosymbolrelatedunits = currentundo.symbolrelatedunits
 							
 							if (#undowordunits > 0) then
 								for a,b in pairs(undowordunits) do
@@ -69,6 +74,14 @@ function undo()
 								end
 							end
 							
+							if (#undosymbolunits > 0) then
+								for a,b in pairs(undosymbolunits) do
+									if (b == line[9]) then
+										updatecode = 1
+									end
+								end
+							end
+						
 							if (#undowordrelatedunits > 0) then
 								for a,b in pairs(undowordrelatedunits) do
 									if (b == line[9]) then
@@ -91,6 +104,14 @@ function undo()
 							
 							if (#undoechorelatedunits > 0) then
 								for a,b in pairs(undoechorelatedunits) do
+									if (b == line[9]) then
+										updatecode = 1
+									end
+								end
+							end
+
+							if (#undosymbolrelatedunits > 0) then
+								for a,b in pairs(undosymbolrelatedunits) do
 									if (b == line[9]) then
 										updatecode = 1
 									end
@@ -165,7 +186,7 @@ function undo()
 							unit.yoffset = line[YOFFSETUNDOLINE]
 							--First override for Offset ends here.
 
-							if (unit.strings[UNITTYPE] == "text") then
+							if (unit.strings[UNITTYPE] == "text") or isglyph(unit) then
 								updatecode = 1
 							end
 							
@@ -176,6 +197,8 @@ function undo()
 							
 							local undowordunits = currentundo.wordunits
 							local undowordrelatedunits = currentundo.wordrelatedunits
+							local undosymbolunits = currentundo.symbolunits
+							local undosymbolrelatedunits = currentundo.symbolrelatedunits
 							
 							if (#undowordunits > 0) then
 								for a,b in ipairs(undowordunits) do
@@ -185,6 +208,14 @@ function undo()
 								end
 							end
 							
+						if (#undosymbolunits > 0) then
+							for a,b in ipairs(undosymbolunits) do
+								if (b == line[6]) then
+									updatecode = 1
+								end
+							end
+						end
+						
 							if (#undowordrelatedunits > 0) then
 								for a,b in ipairs(undowordrelatedunits) do
 									if (b == line[6]) then
@@ -213,7 +244,15 @@ function undo()
 								end
 							end
 							
-							--If the unit was actually a destroyed 'NOUNDO', oops. Don't actually bring it back. It's dead, Jim. @Merge(note)
+							if (#undosymbolrelatedunits > 0) then
+								for a,b in ipairs(undosymbolrelatedunits) do
+									if (b == line[6]) then
+										updatecode = 1
+									end
+								end
+							end
+							
+							--If the unit was actually a destroyed 'NOUNDO', oops. Don't actually bring it back. It's dead, Jim.
 							if (not convert and unit_ignores_undos(unitid)) then
 								unit = {}
 								delunit(unitid)
@@ -255,12 +294,14 @@ function undo()
 							MF_remove(unitid)
 							dynamicat(x,y)
 							
-							if (unittype == "text") then
+							if (unittype == "text") or isglyph(unit, unitname) then
 								updatecode = 1
 							end
 							
 							local undowordunits = currentundo.wordunits
 							local undowordrelatedunits = currentundo.wordrelatedunits
+							local undosymbolunits = currentundo.symbolunits
+							local undosymbolrelatedunits = currentundo.symbolrelatedunits
 							
 							if (#undowordunits > 0) then
 								for a,b in ipairs(undowordunits) do
@@ -270,6 +311,14 @@ function undo()
 								end
 							end
 							
+						if (#undosymbolunits > 0) then
+							for a,b in ipairs(undosymbolunits) do
+								if (b == line[3]) then
+									updatecode = 1
+								end
+							end
+						end
+						
 							if (#undowordrelatedunits > 0) then
 								for a,b in ipairs(undowordrelatedunits) do
 									if (b == line[3]) then
@@ -292,6 +341,13 @@ function undo()
 							
 							if (#undoechorelatedunits > 0) then
 								for a,b in ipairs(undoechorelatedunits) do
+									if (b == line[3]) then
+										updatecode = 1
+									end
+								end
+							end
+							if (#undosymbolrelatedunits > 0) then
+								for a,b in ipairs(undosymbolrelatedunits) do
 									if (b == line[3]) then
 										updatecode = 1
 									end
@@ -358,18 +414,28 @@ function undo()
 					-- EDIT: ECHO once more
 					local undoechounits = currentundo.echounits
 					local undoechorelatedunits = currentundo.echorelatedunits
+					local undosymbolunits = currentundo.symbolunits
+					local undosymbolrelatedunits = currentundo.symbolrelatedunits
 					
 					local unitid = getunitid(line[10])
 					if (unitid ~= nil) and (unitid ~= 0) then
 						local unit = mmf.newObject(unitid)
 						
-						if (unit.strings[UNITTYPE] == "text") then
+						if (unit.strings[UNITTYPE] == "text") or isglyph(unit) then
 							updatecode = 1
 						end
 					end
 					
 					if (#undowordunits > 0) then
 						for a,b in pairs(undowordunits) do
+							if (b == line[10]) then
+								updatecode = 1
+							end
+						end
+					end
+					
+					if (#undosymbolunits > 0) then
+						for a,b in pairs(undosymbolunits) do
 							if (b == line[10]) then
 								updatecode = 1
 							end
@@ -395,6 +461,14 @@ function undo()
 					
 					if (#undoechorelatedunits > 0) then
 						for a,b in pairs(undoechorelatedunits) do
+							if (b == line[10]) then
+								updatecode = 1
+							end
+						end
+					end
+					
+					if (#undosymbolrelatedunits > 0) then
+						for a,b in pairs(undosymbolrelatedunits) do
 							if (b == line[10]) then
 								updatecode = 1
 							end
@@ -459,10 +533,10 @@ function undo()
 				elseif (style == "offset") then --Second and final override for Offset starts here.
 					local unit = mmf.newObject(getunitid(line[2]))
 
-					--[[ 
+					--[[
 						@Merge: IMPORTANT. Need this check of "unit ~= nil" for all undo styles to handle cases with NOUNDO.
-						
-						If a NOUNDO object undos from a "delete" styled-undo, the object actually gets removed immediately after being created. 
+
+						If a NOUNDO object undos from a "delete" styled-undo, the object actually gets removed immediately after being created.
 						(Look for the code that has the comment "@Merge(note)").
 						This causes a "paradox" (not in reference to the actual table called "paradax") where the other undo entries assume that the NOUNDO object will exist.
 						To guard against this case, patashu's modpack adds these checks for every undo style. It's tedious, but I guess its how things are done.
@@ -484,7 +558,7 @@ function undo()
 					local unitid = getunitid(line[2])
 					local unit = mmf.newObject(unitid)
 					local previous_karma = line[3] or false
-					
+
 					if (unit ~= nil) then --paradox-proofing
 						unit.karma = previous_karma
 					end
@@ -498,6 +572,8 @@ function undo()
 		-- EDIT: pass echo units (could this be handled better?)
 		nextundo.echounits = {}
 		nextundo.echorelatedunits = {}
+		nextundo.symbolunits = {}
+		nextundo.symbolrelatedunits = {}
 		nextundo.visiontargets = {}
 		nextundo.fixedseed = Fixedseed
 		
@@ -506,6 +582,12 @@ function undo()
 		end
 		for i,v in ipairs(currentundo.wordrelatedunits) do
 			table.insert(nextundo.wordrelatedunits, v)
+		end
+		for i,v in ipairs(currentundo.symbolunits) do
+			table.insert(nextundo.symbolunits, v)
+		end
+		for i,v in ipairs(currentundo.symbolrelatedunits) do
+			table.insert(nextundo.symbolrelatedunits, v)
 		end
 		
 		-- EDIT: pass ECHO stuff to the next undo
@@ -561,6 +643,8 @@ function newundo(resetundo)
 	if (thisundo ~= nil) then
 		thisundo.wordunits = {}
 		thisundo.wordrelatedunits = {}
+		thisundo.symbolunits = {}
+		thisundo.symbolrelatedunits = {}
 		thisundo.visiontargets = {}
 		-- EDIT: store echo units???
 		thisundo.echounits = {}
@@ -573,6 +657,13 @@ function newundo(resetundo)
 			end
 		end
 
+		if (#symbolunits > 0) then
+			for i,v in ipairs(symbolunits) do
+				local wunit = mmf.newObject(v[1])
+				table.insert(thisundo.symbolunits, wunit.values[ID])
+			end
+		end
+		
 		if (#visiontargets > 0) then
 			for i,v in ipairs(visiontargets) do
 				local wunit = mmf.newObject(v)
@@ -604,6 +695,17 @@ function newundo(resetundo)
 				if (v[1] ~= 2) then
 					local eunit = mmf.newObject(v[1])
 					table.insert(thisundo.echorelatedunits, eunit.values[ID])
+				end
+			end
+		end
+		
+		if (#symbolrelatedunits > 0) then
+			for i,v in ipairs(symbolrelatedunits) do
+				if (v[1] ~= 2) then
+					local wunit = mmf.newObject(v[1])
+					table.insert(thisundo.symbolrelatedunits, wunit.values[ID])
+				else
+					--table.insert(thisundo.symbolrelatedunits, wunit.values[ID])
 				end
 			end
 		end

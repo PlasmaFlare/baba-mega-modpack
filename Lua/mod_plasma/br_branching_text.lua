@@ -23,11 +23,19 @@ function name_is_branching_text_with_special_unitreference(name)
 end
 
 function get_perp_direction(dir)
-    if dir == 1 then 
-        return 2 
+    if dir == 1 then
+        return 2
     elseif dir == 2 then
         return 1
     end
+
+    --@Merge(plasma x xxenzz) The parsing direction of math could be 3 or 4, so we need to add support for these.
+    if dir == 3 then
+        return 4
+    elseif dir == 4 then
+        return 3
+    end
+
     return dir
 end
 

@@ -13,6 +13,9 @@ local RaycastTrace = PlasmaModules.load_module("this/pnoun_raycast_trace")
 local RaycastBank = PlasmaModules.load_module("this/raycast_bank")
 local Pnoun = PlasmaModules.load_module("this/pnoun_group_defs")
 
+local PlasmaSettings_ = PlasmaModules.load_module("general/gui")
+local ortho_this = PlasmaSettings_.get_toggle_setting("this_nometa")
+
 local raycast_trace_tracker = RaycastTrace:new()
 local raycast_analyzer = UndoAnalyzer.analyzers.raycast_analyzer
 
@@ -770,7 +773,12 @@ local function simulate_raycast_with_pnoun(pnoun_unitid, raycast_settings)
                         -- Check through every unit in the specific space
                         for _, ray_unitid in ipairs(unitmap[tileid]) do
                             local ray_unit = mmf.newObject(ray_unitid)
-                            local ray_unit_name = getname(ray_unit) -- If the unit is a text block, we want the name to be "text"
+                            local ray_unit_name
+                            if ortho_this then
+                                ray_unit_name = getname(ray_unit) -- If the unit is a text block, we want the name to be "text"
+                            else
+                                ray_unit_name = ray_unit.strings[UNITNAME]
+                            end
                             local add_to_rayunits = true
 
                             -- block logic
@@ -1049,6 +1057,10 @@ local function is_unit_valid_this_property(name, unittype, texttype, verb)
         if unittype == "text" and (texttype == 0 or texttype == 2) then
             return true
         elseif unittype == "object" then
+            return true
+        end
+    elseif (verb == "draw" or verb == "jot" or verb == "type") then
+        if unittype == "text" and (texttype == 5) then
             return true
         end
     elseif verb == "play" then
@@ -1404,8 +1416,8 @@ local function process_pnoun_features(pnoun_features, feature_extradata, filter_
                                 ray_name = "empty"
                             else
                                 local ray_unit = mmf.newObject(ray_unitid)
-                                ray_name = ray_unit.strings[NAME]
-                                if ray_unit.strings[UNITTYPE] == "text" then
+                                ray_name = ray_unit.strings[UNITNAME]
+                                if ortho_this and (ray_unit.strings[UNITTYPE] == "text") then
                                     ray_name = "text"
                                 end
                             end
@@ -1431,8 +1443,8 @@ local function process_pnoun_features(pnoun_features, feature_extradata, filter_
                             ray_name = "empty"
                         else
                             local ray_unit = mmf.newObject(ray_unitid)
-                            ray_name = ray_unit.strings[NAME]
-                            if ray_unit.strings[UNITTYPE] == "text" then
+                            ray_name = ray_unit.strings[UNITNAME]
+                            if ortho_this and (ray_unit.strings[UNITTYPE] == "text") then
                                 ray_name = "text"
                             end
                         end
@@ -1554,8 +1566,8 @@ local function commit_raycast_data(pnoun_unitid, raycast_simulation_data, pnoun_
                     has_not_prop = hasfeature("empty", "is", "not "..op, 2, x, y)
                 else
                     local ray_unit = mmf.newObject(ray_unitid)
-                    local ray_unit_name = ray_unit.strings[NAME]
-                    if ray_unit.strings[UNITTYPE] == "text" then
+                    local ray_unit_name = ray_unit.strings[UNITNAME]
+                    if ortho_this and (ray_unit.strings[UNITTYPE] == "text") then
                         ray_unit_name = "text"
                     end
                     has_prop = hasfeature(ray_unit_name, "is", op, ray_unitid)

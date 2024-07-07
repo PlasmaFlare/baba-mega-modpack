@@ -126,7 +126,7 @@ function findfeature(rule1,rule2,rule3)
 	end
 end
 
-function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
+function hasfeature(rule1, rule2, rule3, unitid, x, y, checkedconds, ignorebroken_)
 	local ignorebroken = false
 	if (ignorebroken_ ~= nil) then
 		ignorebroken = ignorebroken_
@@ -151,7 +151,7 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 	 ]]
 	if (rule1 ~= nil) and (rule2 ~= nil) and (rule3 ~= nil) then
 		if (featureindex[rule1] ~= nil) then
-			for i,rules in ipairs(featureindex[rule1]) do
+			for i, rules in ipairs(featureindex[rule1]) do
 				local rule = rules[1]
 				local conds = rules[2]
 				
@@ -168,6 +168,7 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 			end
 		end
 	
+		--[[ No bad don't
 		if (string.sub(rule1,1,5) == "text_") and (featureindex["text"] ~= nil) then
 			for i,rules in ipairs(featureindex["text"]) do
 				local rule = rules[1]
@@ -181,12 +182,27 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 					end
 				end
 			end
+		end]]
+
+		if (string.sub(rule1,1,6) == "glyph_") and (featureindex["glyph"] ~= nil) then
+			for i,rules in ipairs(featureindex["glyph"]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == "glyph") and (rule[2] == rule2) and (rule[3] == rule3) then
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true
+						end
+					end
+				end
+			end
 		end
 	end
 	
 	if (rule3 ~= nil) and (rule2 ~= nil) and (rule1 ~= nil) then
 		if (featureindex[rule3] ~= nil) then
-			for i,rules in ipairs(featureindex[rule3]) do
+			for i, rules in ipairs(featureindex[rule3]) do
 				local rule = rules[1]
 				local conds = rules[2]
 				
@@ -227,6 +243,7 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 		end
 		----------------------------------
 	
+    --[[ No bad don't
 		if (string.sub(rule3,1,5) == "text_") and (featureindex["text"] ~= nil) then
 			for i,rules in ipairs(featureindex["text"]) do
 				local rule = rules[1]
@@ -240,19 +257,35 @@ function hasfeature(rule1,rule2,rule3,unitid,x,y,checkedconds,ignorebroken_)
 					end
 				end
 			end
+		end]]
+
+		if (string.sub(rule3,1,6) == "glyph_") and (featureindex["glyph"] ~= nil) then
+			for i,rules in ipairs(featureindex["glyph"]) do
+				local rule = rules[1]
+				local conds = rules[2]
+				
+				if (conds[1] ~= "never") then
+					if (rule[1] == rule1) and (rule[2] == rule2) and (rule[3] == "glyph") then
+						if testcond(conds,unitid,x,y,nil,nil,checkedconds,ignorebroken) then
+							return true
+						end
+					end
+				end
+			end
 		end
 	end
+
 	
 	if (featureindex[rule2] ~= nil) and (rule1 ~= nil) and (rule3 == nil) then
 		local usable = false
 		
 		if (featureindex[rule1] ~= nil) then
-			for i,rules in ipairs(featureindex[rule1]) do
+			for i, rules in ipairs(featureindex[rule1]) do
 				local rule = rules[1]
 				local conds = rules[2]
 				
 				if (conds[1] ~= "never") then
-					for a,mat in pairs(objectlist) do
+					for a, mat in pairs(objectlist) do
 						if (a == rule[1]) then
 							usable = true
 							break
@@ -391,5 +424,168 @@ function getunitswitheffect(rule3,nolevels_,ignorethese_,checkedconds)
     end
     -- @Turning Text -----------------------------
 	
+	return result
+end
+
+function getunitverbtargets(rule2,checkedconds)
+	local group = {}
+	local result = {}
+
+	if (featureindex[rule2] ~= nil) then
+		for i, v in ipairs(featureindex[rule2]) do
+			local rule = v[1]
+			local conds = v[2]
+
+			local name = rule[1]
+
+			local isnot = string.sub(rule[3], 1, 4)
+
+			if (rule[2] == rule2) and (conds[1] ~= "never") and (findnoun(rule[1], nlist.brief) == false) and (isnot ~= "not ") and (rule[1] ~= "text") then
+				if (group[name] == nil) then
+					group[name] = {}
+				end
+
+				table.insert(group[name], { rule[3], conds })
+			end
+		end
+
+		for name, v in pairs(group) do
+			if (string.sub(name, 1, 4) ~= "not ") then
+				if (name ~= "empty") then
+					local fgroupmembers = unitlists[name] or {}
+					local finalgroup = {}
+
+					for a, b in ipairs(fgroupmembers) do
+						local myverbs = {}
+
+						for c,d in ipairs(v) do
+							if testcond(d[2],b,nil,nil,nil,nil,checkedconds) then
+								local unit = mmf.newObject(b)
+
+								if (unit.flags[DEAD] == false) then
+									table.insert(myverbs, d[1])
+								end
+							end
+						end
+
+						table.insert(finalgroup, { b, myverbs })
+					end
+
+					table.insert(result, { name, finalgroup })
+				else
+					local empties = findempty()
+					local finalgroup = {}
+
+					if (#empties > 0) then
+						for a, b in ipairs(empties) do
+							local x = math.floor(b % roomsizex)
+							local y = math.floor(b / roomsizex)
+							local myverbs = {}
+
+							for c,d in ipairs(v) do
+								if testcond(d[2],2,x,y,nil,nil,checkedconds) then
+									table.insert(myverbs, d[1])
+								end
+							end
+
+							table.insert(finalgroup, { b, myverbs })
+						end
+
+						table.insert(result, { name, finalgroup })
+					end
+				end
+			end
+		end
+	end
+
+	return result
+end
+
+function getunitswithverb(rule2, ignorethese_, checkedconds)
+	local group = {}
+	local result = {}
+	local ignorethese = ignorethese_ or {}
+
+	if (featureindex[rule2] ~= nil) then
+		for i, v in ipairs(featureindex[rule2]) do
+			local rule = v[1]
+			local conds = v[2]
+
+			local name = rule[1]
+
+			if (rule[2] == rule2) and (conds[1] ~= "never") and (findnoun(rule[1], nlist.brief) == false) and (string.sub(rule[3], 1, 4) ~= "not ") then
+				if (group[name] == nil) then
+					group[name] = {}
+				end
+
+				table.insert(group[name], { rule[3], conds })
+			end
+		end
+
+		for i, v in pairs(group) do
+			if (string.sub(i, 1, 4) ~= "not ") and i ~= "text" and string.sub(i, 1, 4) ~= "meta" then -- changed line
+				if (i ~= "empty") then
+					local name = i
+					local fgroupmembers = unitlists[name]
+
+					if (fgroupmembers ~= nil) and (#fgroupmembers > 0) then
+						for c, d in ipairs(v) do
+							table.insert(result, { d[1], {}, name })
+							local thisthisresult = result[#result][2]
+
+							for a, b in ipairs(fgroupmembers) do
+								if testcond(d[2], b, nil, nil, nil, nil, checkedconds) then
+									local unit = mmf.newObject(b)
+
+									if (unit.flags[DEAD] == false) then
+										local valid = true
+										for e, f in ipairs(ignorethese) do
+											if (f == b) then
+												valid = false
+												break
+											end
+										end
+
+										if valid then
+											table.insert(result[#result][2], unit)
+										end
+									end
+								end
+							end
+						end
+					end
+				else
+					local name = i
+					local empties = findempty()
+
+					if (#empties > 0) then
+						for c, d in ipairs(v) do
+							table.insert(result, { d[1], {}, name })
+
+							for e, f in ipairs(empties) do
+								local x = math.floor(f % roomsizex)
+								local y = math.floor(f / roomsizex)
+
+								if testcond(d[2], 2, x, y, nil, nil, checkedconds) then
+									local valid = true
+									for g, h in ipairs(ignorethese) do
+										if (f == h) then
+											valid = false
+											break
+										end
+									end
+
+									if valid then
+										table.insert(result[#result][2], f)
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
 	return result
 end

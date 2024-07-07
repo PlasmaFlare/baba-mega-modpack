@@ -27,18 +27,18 @@ function do_directional_more(full_more_units, delthese_)
     end
 
     local full_more_units_dict = {}
-	
+
 	local more_unit_dirs = {}
 	if full_more_units ~= nil then
-    	for _, unit in ipairs(full_more_units) do
-		full_more_units_dict[unit.fixed] = true
+		for _, unit in ipairs(full_more_units) do
+			full_more_units_dict[unit.fixed] = true
 			more_unit_dirs[unit] = {1,2,3,4}
 		end
 	end
 
 	for i=1,4 do
 		local dirfeature = dirfeaturemap[i]
-		local more_units = getunitswitheffect("more"..dirfeature,false,delthese)
+		local more_units = getunitswitheffect("more"..dirfeature,false)
 		for j,unit in ipairs(more_units) do
 			if not full_more_units_dict[unit.fixed] then
 				if not more_unit_dirs[unit] then
@@ -241,6 +241,11 @@ function do_directional_shift_moveblock()
 
 	arrow_prop_mod_globals.group_arrow_properties = false
 	local isshift = findallfeature(nil,"is","shift",true)
+	-- NIMI MOD EDIT: make throw objects update their facing later in the turn like shift objects do
+	local isthrow = findallfeature(nil,"is","throw",true)
+	for i,v in ipairs(isthrow) do
+		table.insert(isshift,v)
+	end
 	arrow_prop_mod_globals.group_arrow_properties = true
 	
 	for a,unitid in ipairs(isshift) do
@@ -361,7 +366,7 @@ end
 function do_directional_shift_resolve_stacked_shifts(moving_units)
 	local new_moving_units = {}
 	for i,data in ipairs(moving_units) do
-		if (data.reason == "shift" or data.reason == "yeet") and data.dirshiftstate == 0 then
+		if (data.reason == "shift" or data.reason == "yeet" or data.reason == "throw") and data.dirshiftstate == 0 then
 			if data.horsmove ~= 0 or data.vertmove ~= 0 then
 				if data.horsmove > 0 then
 					data.horsdir = 0

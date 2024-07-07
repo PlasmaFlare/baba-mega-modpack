@@ -102,6 +102,7 @@ end
 local old_addundo = addundo
 local UndoAnalyzer = PlasmaModules.load_module("general/undo_analyzer")
 function addundo(line,...)
+    if undobuffer[1] == nil then undobuffer[1] = {} end 
     local ret = table.pack(old_addundo(line, ...))
 
     UndoAnalyzer.analyze_undo_line(line)

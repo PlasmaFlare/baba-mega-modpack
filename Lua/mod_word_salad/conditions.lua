@@ -16,7 +16,7 @@ end
 -- ALIGNED: true if all objects of that kind are in the same row or column
 condlist.aligned = function(params,checkedconds,_,cdata)
 	local unitid, name, x, y = cdata.unitid, cdata.name, cdata.x, cdata.y
-	if (unitid ~= 1 and unitid ~= 2) then		
+	if (unitid ~= 1 and unitid ~= 2) then
 		-- Ideally we could cache the results, but there's no mod hook for the very beginning of a turn?
 		local xFail, yFail = false, false
 		for _,u in pairs(unitlists[name]) do
@@ -58,7 +58,7 @@ end
 -- ALIGNEDX: true if all objects of that kind are in the same row
 condlist.alignedx = function(params,checkedconds,_,cdata)
 	local unitid, name, y = cdata.unitid, cdata.name, cdata.y
-	if (unitid ~= 1 and unitid ~= 2) then		
+	if (unitid ~= 1 and unitid ~= 2) then
 		-- Ideally we could cache the results, but there's no mod hook for the very beginning of a turn?
 		for _,u in pairs(unitlists[name]) do
 			local unit = mmf.newObject(u)
@@ -86,7 +86,7 @@ end
 -- ALIGNEDY: true if all objects of that kind are in the same column
 condlist.alignedy = function(params,checkedconds,_,cdata)
 	local unitid, name, x = cdata.unitid, cdata.name, cdata.x
-	if (unitid ~= 1 and unitid ~= 2) then		
+	if (unitid ~= 1 and unitid ~= 2) then
 		-- Ideally we could cache the results, but there's no mod hook for the very beginning of a turn?
 		for _,u in pairs(unitlists[name]) do
 			local unit = mmf.newObject(u)

@@ -24,7 +24,7 @@ function writerules(parent,name,x_,y_)
 	for i,rules in ipairs(visualfeatures) do
 		local text = ""
 		local rule = rules[1]
-		
+
 		if (#custom == 0) then
 			-- EDIT: implement AMBIENT
 			local target = rule[1]
@@ -150,25 +150,42 @@ function writerules(parent,name,x_,y_)
 							text = text .. "& "
 						end
 					else
-						if (#custom == 0) then
+						if cond[1] ~= "feelspast" and cond[1] ~= "feelsfuture" then
+
+							if (#custom == 0) then
 							-- EDIT: allow prefixes to have different visual names in the properties
 							local target = cond[1]
 							local isnot = string.sub(target, 1, 4)
 							local target_ = target
-							
+
 							if (isnot == "not ") then
 								target_ = string.sub(target, 5)
 							else
 								isnot = ""
 							end
-							
+
 							if (word_names[target_] ~= nil) then
 								target = isnot .. word_names[target_]
 							end
-							
-							text = target .. " " .. text
+
+								text = target .. " " .. text
+							else
+								text = custom .. " " .. text
+							end
 						else
-							text = custom .. " " .. text
+							if cond[1] == "feelspast" then
+								for a, b in ipairs(presenttense) do
+									if b == rule[2] then
+										rule[2] = pasttense[a]
+									end
+								end
+							elseif cond[1] == "feelsfuture" then
+								for a, b in ipairs(presenttense) do
+									if b == rule[2] then
+										rule[2] = futuretense[a]
+									end
+								end
+							end
 						end
 					end
 				end
@@ -201,7 +218,13 @@ function writerules(parent,name,x_,y_)
 					text = text .. " (mimic)"
 				end
 			end
-			
+
+			for a,b in ipairs(tags) do
+				if (b == "keep") then
+					text = text .. " (keep)"
+				end
+			end
+
 			if (allrules[text] == nil) then
 				allrules[text] = 1
 				count = count + 1
@@ -430,7 +453,7 @@ function inside(name,x,y,dir_,unitid,leveldata_)
 			if (target == name) and (verb == "has") and (findnoun(object,nlist.short) or (unitreference[object] ~= nil)) then
 				table.insert(ins, {object,conds})
 			end
-			if (target == name) and (verb == "scrawl") then
+			if (target == name) and ((verb == "scrawl") or (verb == "jot")) then
 				table.insert(wordins, {object,conds})
 			end
 		end
@@ -441,18 +464,44 @@ function inside(name,x,y,dir_,unitid,leveldata_)
 			local object = v[1]
 			local conds = v[2]
 			if testcond(conds,unitid,x,y) then
-				if (object ~= "text") then
-					for a,mat in pairs(objectlist) do
+				if (object == "text") then
+					object = "text_" .. name
+				elseif (object == "glyph") then
+					object = "glyph_" .. name
+				elseif string.sub(object,1,4) == "meta" then
+					local level = string.sub(object,5)
+					if tonumber(level) ~= nil and tonumber(level) >= -1 then
+						local basename,_ = string.gsub(name,"text_","")
+						if basename == "" then
+							basename = "text_"
+						end
+						object = string.rep("text_",level + 1) .. basename
+						if findnoun(object,nlist.short,true) ~= false then
+							object = "_NONE_"
+						end
+					else
+						object = "_NONE_"
+					end
+				end
+				local did = false -- changes start here
+				for a,mat in pairs(fullunitlist) do -- main change
 						if (a == object) and (object ~= "empty") then
 							if (object ~= "all") and (string.sub(object, 1, 5) ~= "group") then
+							if unitreference[object] ~= nil then
 								create(object,x,y,dir,nil,nil,nil,nil,leveldata)
+								did = true
+							end
 							elseif (object == "all") then
 								createall(v,x,y,unitid,nil,leveldata)
+							did = true
 							end
 						end
 					end
-				else
-					create("text_" .. name,x,y,dir,nil,nil,nil,nil,leveldata)
+				if not did and (string.sub(object,1,6) == "glyph_" or string.sub(object,1,5) == "text_") then
+					did = tryautogenerate(object)
+					if did then
+						create(object,x,y,dir,nil,nil,nil,nil,leveldata)
+					end
 				end
 			end
 		end
@@ -909,7 +958,8 @@ function getlevelsurrounds(levelid)
 	-- NOTE: this assumes that the text being echoed is of the same type as within the level (for example if BABA is a noun in the map, it's treated as a noun inside the level as well)
 	
 	ws_overlapping_texts = {}
-	local text_ids = findtype({"text"}, x, y)
+	-- @Merge(Word Salad x Metatext): set flag for explicit querying of all texts (see findtype() function def for why)
+	local text_ids = findtype({"text"}, x, y, nil, false, true)
 	for _,textid in ipairs(text_ids) do
 		local text_unit = mmf.newObject(textid)
 
@@ -942,7 +992,7 @@ function getlevelsurrounds(levelid)
 				end
 			end
 		end
-	
+
 
 	end
 	
@@ -1038,7 +1088,7 @@ function update(unitid,x,y,dir_)
 				dynamicat(oldx,oldy)
 			end
 			
-			if (unittype == "text") then
+			if (unittype == "text") or isglyph(unit) then
 				updatecode = 1
 			end
 			
@@ -1049,25 +1099,161 @@ function update(unitid,x,y,dir_)
 			if (featureindex["echo"] ~= nil) then
 				ws_checkechochanges(unitid)
 			end
+			if (featureindex["symbol"] ~= nil) then
+				checksymbolchanges(unitid,unitname)
+			end
 		end
 	else
 		MF_alert("Tried to update a nil unit")
 	end
 end
 
+function findtype(typedata,x,y,unitid_,just_testing_,group_text_together_)
+	local result = {}
+	local unitid = 0
+	local tileid = x + y * roomsizex
+	local name = typedata[1]
+	local conds = typedata[2]
+
+	local just_testing = just_testing_ or false
+
+	--[[ 
+		@Merge: There are some cases where a caller would want to use findtype() to query all texts using "text" as the name.
+		By default, the metatext mod disallows this, since it treats "text_text" similar to "all" where it spawns subrules,
+		while leaving the original rule in the featureindex. To resolve this conflict, any explicit querrying for all text units
+		in findtype should set this flag to true
+	 ]]
+	local group_text_together = group_text_together_ or false
+
+	if (unitid_ ~= nil) then
+		unitid = unitid_
+	end
+
+	if (unitmap[tileid] ~= nil) then
+		for i,v in ipairs(unitmap[tileid]) do
+			if (v ~= unitid) then
+				local unit = mmf.newObject(v)
+
+				if (unit.strings[UNITNAME] == name) or (group_text_together and ((unit.strings[UNITTYPE] == "text") and (name == "text"))) or (isglyph(unit) and (name == "glyph")) then
+					if testcond(conds,v) then
+						table.insert(result, v)
+
+						if just_testing then
+							return result
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return result
+end
+
+function getmat(m,checkallunit)
+	local found = false
+	if checkallunit then
+		for i,v in pairs(fullunitlist) do
+			if (i == m) then
+				found = true
+			end
+		end
+	else
+		for i,v in pairs(objectlist) do
+			if (i == m) then
+				found = true
+			end
+		end
+	end
+
+	if found then
+		return m
+	else
+		return nil
+	end
+end
+
+function getmat_text(name)
+	if string.sub(name,1,10) == "text_text_" then
+		name = string.sub(name,6)
+	end
+	local base = unitreference[name]
+	local changed = objectpalette[name]
+
+	if (generaldata.strings[WORLD] ~= generaldata.strings[BASEWORLD]) then
+		return (changed ~= nil)
+	else
+		return (base ~= nil)
+	end
+
+	return false
+end
+
+function getname(unit,pname_,pnot_)
+	local result = unit.strings[UNITNAME]
+	local pname = pname_ or ""
+	local pnot = pnot_ or false
+	if type(pname) ~= "string" then
+		--Guys I fixed the bug that keeps getting reported
+		pname = ""
+	end
+
+	if (unit.strings[UNITTYPE] == "text") and (string.sub(result, 1, 5) ~= "text_") then
+		result = "text_" .. result -- Makes mesatext not refer to itself. There are probably other oddities though
+	elseif (unit.strings[UNITTYPE] == "text") and ((pname == "text") or (pnot == true)) and (string.sub(pname,1,4) ~= "meta") and (string.sub(pname,1,5) ~= "text_") then
+		result = "text"
+	elseif (unit.strings[UNITTYPE] ~= "text") and (string.sub(pname,1,5) == "text_") and (pnot == true) then
+		result = "text"
+	elseif string.sub(pname,1,4) == "meta" then
+		if metatext_includenoun or pnot == false or unit.strings[UNITTYPE] == "text" then
+			local include = false
+			local level = string.sub(pname,5)
+			if tonumber(level) ~= nil and tonumber(level) >= -1 then
+				local metalevel = getmetalevel(result)
+				if metalevel == tonumber(level) then
+					include = true
+				end
+			end
+			if include == pnot then
+				result = "text"
+			elseif not pnot then
+				result = pname
+			end
+		else
+			result = "text"
+		end
+	elseif (string.sub(result, 1, 6) == "glyph_") and ((pname == "glyph") or (pnot == true)) and (string.sub(pname,1,6) ~= "glyph_") then
+		result = "glyph"
+	end
+
+	return result
+end
+
+function findnoun(noun,list_,ignoretext)
+	local list = list_ or nlist.full
+
+	for i,v in ipairs(list) do
+		if (v == noun) or ((v == "group") and (string.sub(noun, 1, 5) == "group")) or (((string.sub(noun,1,6) == "glyph_" and v == "glyph") or (string.sub(noun,1,5) == "text_" and v == "text")) and ignoretext ~= true) or (string.sub(noun,1,4) == "meta" and v == "all") then
+			return true
+		end
+	end
+
+	return false
+end
+
 function delunit(unitid)
 	local unit = mmf.newObject(unitid)
-	
+
 	-- MF_alert("DELUNIT " .. unit.strings[UNITNAME])
-	
+
 	if (unit ~= nil) then
-		local name = getname(unit)
+		local name = getname(unit, "text")
 		local x,y = unit.values[XPOS],unit.values[YPOS]
 		local unitlist = unitlists[name]
 		local unitlist_ = unitlists[unit.strings[UNITNAME]] or {}
 		local unittype = unit.strings[UNITTYPE]
 		
-		if (unittype == "text") then
+		if (unittype == "text") or (isglyph(unit)) then
 			updatecode = 1
 		end
 		
@@ -1093,10 +1279,24 @@ function delunit(unitid)
 				end
 			end
 		end
-		
+
+		-- This is the added part
+		local level = getmetalevel(unit.strings[UNITNAME])
+		if level >= -1 then
+			local munitlist = unitlists["meta" .. level]
+			if (munitlist ~= nil) then
+				for i,v in pairs(munitlist) do
+					if (v == unitid) then
+						v = {}
+						table.remove(munitlist, i)
+					end
+				end
+			end
+		end
+
 		-- TÄMÄ EI EHKÄ TOIMI
 		local tileid = x + y * roomsizex
-		
+
 		if (unitmap[tileid] ~= nil) then
 			for i,v in pairs(unitmap[tileid]) do
 				if (v == unitid) then
@@ -1141,7 +1341,16 @@ function delunit(unitid)
 				end
 			end
 		end
-
+		
+        if (string.sub(unit.strings[UNITNAME], 1, 6) == "glyph_") and (glyphunits ~= nil) then
+			for i,v in pairs(glyphunits) do
+				if (v == unitid) then
+					v = {}
+					table.remove(glyphunits, i)
+				end
+			end
+        end
+		
 		if (unit.values[TILING] > 1) and (animunits ~= nil) then
 			for i,v in pairs(animunits) do
 				if (v == unitid) then
@@ -1168,6 +1377,18 @@ function delunit(unitid)
 					updatecode = 1
 					v = {}
 					table.remove(wordunits, i)
+				end
+			end
+		end
+		
+		if (#symbolunits > 0) and (unit.values[TYPE] == 0) and not isglyph(unit) then
+			for i,v in pairs(symbolunits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.symbolunits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(symbolunits, i)
 				end
 			end
 		end
@@ -1209,6 +1430,18 @@ function delunit(unitid)
 			end
 		end
 		
+		if (#symbolrelatedunits > 0) then
+			for i,v in pairs(symbolrelatedunits) do
+				if (v[1] == unitid) then
+					local currentundo = undobuffer[1]
+					table.insert(currentundo.symbolrelatedunits, unit.values[ID])
+					updatecode = 1
+					v = {}
+					table.remove(symbolrelatedunits, i)
+				end
+			end
+		end
+		
 		if (#visiontargets > 0) then
 			for i,v in pairs(visiontargets) do
 				if (v == unitid) then
@@ -1238,6 +1471,8 @@ function delunit(unitid)
 end
 
 function destroylevel(special_)
+	--@mods(eternal)
+	isbeyond = true
 	destroylevel_check = true
 	destroylevel_style = special_ or ""
 	
@@ -1256,27 +1491,150 @@ function destroylevel(special_)
 	generaldata2.values[NOPLAYER] = 1
 end
 
-function findgroup(grouptype_,invert_,limit_,checkedconds_)
+function destroylevel_do()
+	--@mods(eternal)
+	if et_ignoreinfloop then
+		return
+	end
+	if (generaldata.values[MODE] ~= 5) and destroylevel_check then
+		MF_musicstate(1)
+		generaldata2.values[NOPLAYER] = 1
+
+		local should_reparse_rules = false
+
+		destroylevel_check = false
+		local special = destroylevel_style or ""
+		destroylevel_style = ""
+
+		local dellist = {}
+		for i, unit in ipairs(units) do
+			table.insert(dellist, unit.fixed)
+		end
+
+		if (#dellist > 0) then
+			for i, unitid in ipairs(dellist) do
+				local unit = mmf.newObject(unitid)
+				local c1, c2 = getcolour(unitid)
+				local pmult, sound = checkeffecthistory("destroylevel")
+
+				if (special ~= "infinity") and (special ~= "empty") and (special ~= "bonus") then
+					MF_particles("bling", unit.values[XPOS], unit.values[YPOS], 10 * pmult, c1, c2, 1, 1)
+				elseif (special == "bonus") then
+					MF_particles("win", unit.values[XPOS], unit.values[YPOS], 10 * pmult, 4, 1, 1, 1)
+				end
+
+				local name = getname(unit)
+				if hasfeature(name, "is", "secure", unitid, x, y) == nil then
+					if ((special == "infinity") or (special == "paradox")) and hasfeature(name, "is", "eternal", unitid, x, y) then
+
+					else
+						delete(unitid, nil, nil, true)
+					end
+				else
+					should_reparse_rules = true
+					updatecode = 1
+				end
+			end
+		end
+
+		if (special == "infinity") then
+			if (HACK_INFINITY <= 200) then
+				writetext(langtext("ingame_infiniteloop"), 0, screenw * 0.5 - 12, screenh * 0.5 + 60, 0, true, 3, true, { 4, 1 }, 3)
+				HACK_INFINITY = 0
+
+				MF_playsound("infinity")
+
+				local isignid = MF_specialcreate("Special_infinity")
+				local isign = mmf.newObject(isignid)
+
+				isign.x = screenw * 0.5
+				isign.y = screenh * 0.5 - 36
+				isign.layer = 2
+				MF_setcolour(isignid, 4, 1)
+			end
+		elseif (special == "paradox") then
+			if (HACK_INFINITY == -1) then
+				writetext("time paradox", 0, screenw * 0.5 - 12, screenh * 0.5 + 60, 0, true, 3, true, { 5, 3 }, 3)
+				HACK_INFINITY = 0
+
+				MF_playsound("infinity")
+
+				local isignid = MF_specialcreate("Special_infinity")
+				local isign = mmf.newObject(isignid)
+
+				isign.x = screenw * 0.5
+				isign.y = screenh * 0.5 - 36
+				isign.layer = 2
+				MF_setcolour(isignid, 5, 3)
+			end
+		elseif (special == "toocomplex") then
+			writetext(langtext("ingame_toocomplex"), 0, screenw * 0.5 - 12, screenh * 0.5, 0, true, 3, true, { 4, 1 }, 3)
+			HACK_INFINITY = 0
+
+			MF_playsound("infinity")
+		elseif (special == "doom") then
+			writetext("level destroyed", 0, screenw * 0.5 - 12, screenh * 0.5, 0, true, 3, true, { 2, 2 }, 3)
+			HACK_INFINITY = 0
+
+			MF_playsound("infinity")
+		elseif (special == "bonus") then
+			MF_playsound("bonus")
+		end
+
+		et_ignoreinfloop = true
+		code()
+		et_ignoreinfloop = false
+
+		if ((special == "infinity") and (hasfeature(name, "is", "eternal", unitid, x, y) == false)) and (hasfeature(name, "is", "secure", unitid, x, y) == false) then
+			MF_removeblockeffect(0)
+			updatecode = 1
+			features = {}
+			featureindex = {}
+			visualfeatures = {}
+			notfeatures = {}
+		end
+
+		collectgarbage()
+	elseif (generaldata.values[MODE] == 5) then
+		timedmessage("Destroylevel() called from editor. Report this!")
+	end
+end
+
+
+function findgroup(grouptype_,invert_,limit_,checkedconds_,notextnoun_)
 	local result = {}
 	local limit = limit_ or 0
 	local invert = invert_ or false
 	local grouptype = grouptype_ or "group"
+	local notextnoun = notextnoun_ or false
 	local found = {}
 	local alreadyused = {}
-	
+
 	limit = limit + 1
-	
+
 	local idstring = ""
 	local currmembers = {}
 	local handlerecursion = false
-	
+
 	for i,v in ipairs(groupmembers) do
 		local name = v[1]
 		local conds = v[2]
 		local gtype = v[3]
 		local recursion = v[4]
-		
-		if (gtype == grouptype) then
+		local tags = v[5]
+		local foundtag = false
+		if notextnoun then
+			for num,tag in pairs(tags) do
+				if tag == "text" or string.sub(tag,1,4) == "meta" then
+					foundtag = true
+					break
+				end
+			end
+		elseif name == "text" or string.sub(name,1,4) == "meta" then
+			foundtag = true
+		end
+
+		if (gtype == grouptype) and foundtag == false then
 			if hasconds(v) and (unitlists[name] ~= nil) then
 				if (recursion == false) then
 					for a,b in ipairs(unitlists[name]) do
@@ -1377,6 +1735,78 @@ function findgroup(grouptype_,invert_,limit_,checkedconds_)
 		end
 		
 		return actualresult
+	end
+	
+	return result
+end
+
+function updatedir(unitid,dir,noundo_)
+	if (unitid ~= nil) then
+		local unit = mmf.newObject(unitid)
+		local x,y = unit.values[XPOS],unit.values[YPOS]
+		local unitname = unit.strings[UNITNAME]
+		local unittype = unit.strings[UNITTYPE]
+		local olddir = unit.values[DIR]
+		
+		local noundo = noundo_ or false
+		
+		if (dir ~= olddir) then
+			if (noundo == false) then
+				updateundo = true
+				addundo({"update",unitname,x,y,olddir,x,y,dir,unit.values[ID]},unitid)
+			end
+			unit.values[DIR] = dir
+			
+			if (unittype == "text") or isglyph(unit) then
+				updatecode = 1
+			end
+		end
+	else
+		MF_alert("Tried to updatedir a nil unit")
+	end
+end
+
+function findall(name_,ignorebroken_,just_testing_)
+	local result = {}
+	local name = name_[1]
+	local meta = true
+	
+	local checklist = unitlists[name]
+	
+	if (name == "text") then
+		checklist = codeunits
+		meta = false
+	end
+
+	if (name == "glyph") then
+		checklist = glyphunits
+	end
+	
+	local ignorebroken = ignorebroken_ or false
+	local just_testing = just_testing_ or false
+	
+	if (checklist ~= nil) then
+		for i,unitid in ipairs(checklist) do
+			local unit = mmf.newObject(unitid)
+			local unitname = getname(unit,meta)
+			
+			local oldbroken = unit.broken
+			if ignorebroken then
+				unit.broken = 0
+			end
+			
+			if (unitname == name)  then
+				if testcond(name_[2],unitid) then
+					table.insert(result, unitid)
+					
+					if just_testing then
+						return result
+					end
+				end
+			end
+			
+			unit.broken = oldbroken
+		end
 	end
 	
 	return result

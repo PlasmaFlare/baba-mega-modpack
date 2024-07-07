@@ -236,6 +236,10 @@ oldaddundo = addundo
 function addundo(line,uid_)
 	local ename = line[1]
 	if (ename == "remove") then
+		-- NIMI MOD EDIT: make karma undo data always boolean (yes, THIS is what causes the offset undo bug)
+		if (line[22] == nil) then
+			line[22] = false
+		end
 		local unit = mmf.newObject(getunitid(line[6]))
 		line[XOFFSETUNDOLINE] = unit.xoffset
 		line[YOFFSETUNDOLINE] = unit.yoffset
@@ -330,19 +334,19 @@ word_names["offsetdown"] = "offset (down)"
 
 -- @Merge: Word Glossary Mod support
 if keys.IS_WORD_GLOSSARY_PRESENT then
-    keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
-    keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
-        {
-            name = "offset",
+	keys.WORD_GLOSSARY_FUNCS.register_author("Btd456creeper", {0,3} )
+	keys.WORD_GLOSSARY_FUNCS.add_entries_to_word_glossary({
+		{
+			name = "offset",
 			thumbnail_obj = "text_offsetright",
 			author = "Btd456creeper",
 			display_sprites = {"text_offsetright", "text_offsetup", "text_offsetleft", "text_offsetdown", "text_turning_offset"},
-			description = 
-[[Adjusts an objects position by 1 tile in the indicated direction. When the object is no longer OFFSET, the object's position adjusts back, undoing the effects of offset.
+			description =
+			[[Adjusts an objects position by 1 tile in the indicated direction. When the object is no longer OFFSET, the object's position adjusts back, undoing the effects of offset.
 
-- An object can stack offsets to get a larger object displacement.
+            - An object can stack offsets to get a larger object displacement.
 
-- Includes turning text variant]],
-        }
-    })
+            - Includes turning text variant]],
+		}
+	})
 end

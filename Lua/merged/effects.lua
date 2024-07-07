@@ -14,7 +14,8 @@ function effects(timer)
 	doeffect(timer,nil,"sleep","sleep",1,2,60,{3,2})
 	doeffect(timer,nil,"broken","error",3,10,8,{2,2})
 	doeffect(timer,nil,"pet","pet",1,0,50,{3,1},"nojitter")
-	
+	doeffect(timer, nil, "toxic", "hot", 1, 80, 10, { 0, 1 })
+
 	doeffect(timer,nil,"power","electricity",2,5,8,{2,4})
 	doeffect(timer,nil,"power2","electricity",2,5,8,{5,4})
 	doeffect(timer,nil,"power3","electricity",2,5,8,{4,4})
@@ -25,7 +26,12 @@ function effects(timer)
 	doeffect(timer,nil,"visit","unlock",1,2,8,{0,3},"visitrule")
 
 	doeffect(timer,nil,"visit","unlock",1,2,8,{0,3},"visitrule")
-	
+
+	rnd = math.random(0, 2)
+	doeffect(timer, nil, "alkali", "hot", 10, 50, 8, { 4, rnd }, "inwards")
+	rnd = math.random(3, 4)
+	doeffect(timer, nil, "eternal", "infinity", 1, 40, 3, { 1, rnd })
+
 	do_mod_hook("effect_always")
 end
 
@@ -144,7 +150,7 @@ function doeffect(timer,word2_,word3,particle,count,chance,timing,colour,special
 					end
 
 					local cause = v[1]
-					
+
 					-- EDIT: Spawn particles around the level edge if the special rule is "leveledge"
 					if (specialrule == "leveledge") and (v[1] == "level") and testcond(v[2],1) then
 						for i=0,roomsizex-1 do

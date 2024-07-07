@@ -1,4 +1,4 @@
-plasma_modpack_version = "1.5.16"
+plasma_modpack_version = "1.5.15"
 
 br_prefix = "branching_"
 br_prefix_len = string.len(br_prefix)
@@ -66,9 +66,9 @@ branching_text_names = {
     feeling = true,
     ["and"] = true,
     offsetright="offset (right)", --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
-	offsetup="offset (up)",
-	offsetleft="offset (left)",
-	offsetdown="offset (down)",
+    offsetup="offset (up)",
+    offsetleft="offset (left)",
+    offsetdown="offset (down)",
 }
 
 arrow_property_display = {
@@ -112,6 +112,10 @@ arrow_property_display = {
 	boomup="boom (up)",
 	boomleft="boom (left)",
 	boomdown="boom (down)",
+	offsetright="offset (right)", --@Merge(offset and nuhuh x plasma) add support for turning offset and nuhuh
+	offsetup="offset (up)",
+	offsetleft="offset (left)",
+	offsetdown="offset (down)",
 }
 
 baba_font_consts = {

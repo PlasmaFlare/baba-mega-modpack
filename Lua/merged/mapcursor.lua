@@ -65,13 +65,14 @@ function mapcursor_move(ox_,oy_,mdir)
 			
 			checkwordchanges(unit.fixed,unit.strings[UNITNAME])
 			ws_checkechochanges(unit.fixed) -- Added check for ECHO
+			checksymbolchanges(unit.fixed,unit.strings[UNITNAME])
 			
 			if (levelfound == false) then
 				editor.values[NAMEFLAG] = 0
 				unit.values[CURSOR_ONLEVEL] = 0
 			end
 			
-			if (unit.strings[UNITTYPE] == "text") then
+			if (unit.strings[UNITTYPE] == "text") or isglyph(unit) then
 				updatecode = 1
 			end
 			

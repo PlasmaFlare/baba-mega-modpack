@@ -1,7 +1,7 @@
 -- OVERRIDE: add ECHO particles (monkey patching goes brrr)
 local effects_old = effects
 -- @Merge(injection)
-effects = function(timer) 
+effects = function(timer)
 	effects_old(timer)
 	-- EDIT: Add ECHO particles
 	local echornd = math.random(2,3)

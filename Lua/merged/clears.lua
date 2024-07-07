@@ -2,6 +2,7 @@ function clearunits(restore_)
 	units = {}
 	tiledunits = {}
 	codeunits = {}
+    glyphunits = {}
 	animunits = {}
 	unitlists = {}
 	undobuffer = {}
@@ -15,6 +16,8 @@ function clearunits(restore_)
 	objectcolours = {}
 	wordunits = {}
 	wordrelatedunits = {}
+	symbolunits = {}
+	symbolrelatedunits = {}
 	letterunits = {}
 	letterunits_map = {}
 	paths = {}
@@ -82,6 +85,8 @@ function clear()
 	updatelist = {}
 	wordunits = {}
 	wordrelatedunits = {}
+	symbolunits = {}
+	symbolrelatedunits = {}
 	letterunits_map = {}
 	paradox = {}
 	movelist = {}

@@ -19,6 +19,8 @@ function apply_word_salad_settings(settings_dict)
             MUSIC_WHEN_ONLY_VESSELS = value
         elseif setting_name == "do_hop_particles" then
             DO_HOP_PARTICLES = value
+        elseif setting_name == "keep_level_karma" then
+            WS_KEEP_LEVEL_KARMA = value
         elseif setting_name == "can_enter_any" then
             WS_CAN_ENTER_ANY = value
         elseif setting_name == "echo_word_units" then
