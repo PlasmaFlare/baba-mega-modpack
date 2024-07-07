@@ -1,4 +1,4 @@
-local mega_modpack_version = "1.0.6 Stable"
+local mega_modpack_version = "1.4.0"
 local mega_modpack_name = string.format("Mega Modpack V%s - by Plasmaflare and Ocean", mega_modpack_version)
 local mega_modpack_name_with_color = string.format("Mega Modpack V%s - by $1,4Plasma$3,4flare$0,3 and Ocean", mega_modpack_version)
 

@@ -218,60 +218,60 @@ function moveblock(onlystartblock_)
 			end
 		end
 	end
-	
+
 	if (onlystartblock == false) then
 		local isback = findallfeature(nil,"is","back",true)
-		
+
 		for i,unitid in ipairs(isback) do
 			local unit = mmf.newObject(unitid)
-			
+
 			local undooffset = #undobuffer - unit.back_init
-			
+
 			local undotargetid = undooffset * 2 + 1
-			
+
 			if (undotargetid <= #undobuffer) and (unit.back_init > 0) and (unit.flags[DEAD] == false) then
 				local currentundo = undobuffer[undotargetid]
-				
+
 				particles("wonder",unit.values[XPOS],unit.values[YPOS],1,{3,0})
-				
+
 				updateundo = true
-				
+
 				if (currentundo ~= nil) then
 					for a,line in ipairs(currentundo) do
 						local style = line[1]
-						
+
 						if (style == "update") and (line[9] == unit.values[ID]) then
 							local uid = line[9]
-							
+
 							if (paradox[uid] == nil) then
 								local ux,uy = unit.values[XPOS],unit.values[YPOS]
 								local oldx,oldy = line[6],line[7]
 								local x,y,dir = line[3],line[4],line[5]
-								
+
 								local ox = x - oldx
 								local oy = y - oldy
-								
+
 								--[[
 								Enable this to make the Back effect relative to current position
 								x = ux + ox
 								y = uy + oy
 								]]--
-								
+
 								--MF_alert(unit.strings[UNITNAME] .. " is being updated from " .. tostring(ux) .. ", " .. tostring(uy) .. ", offset " .. tostring(ox) .. ", " .. tostring(oy))
-								
+
 								if (ox ~= 0) or (oy ~= 0) then
 									addaction(unitid,{"update",x,y,dir})
 								else
 									addaction(unitid,{"updatedir",dir})
 								end
 								updateundo = true
-								
+
 								if (objectdata[unitid] == nil) then
 									objectdata[unitid] = {}
 								end
-								
+
 								local odata = objectdata[unitid]
-								
+
 								odata.tele = 1
 							else
 								particles("hot",line[3],line[4],1,{1, 1})
@@ -279,30 +279,30 @@ function moveblock(onlystartblock_)
 							end
 						elseif (style == "create") and (line[3] == unit.values[ID]) then
 							local uid = line[4]
-							
+
 							--MF_alert(unit.strings[UNITNAME] .. " back: " .. tostring(uid) .. ", " .. tostring(line[3]))
-							
+
 							if (paradox[uid] == nil) then
 								local name = unit.strings[UNITNAME]
-								
+
 								local delname = {}
-								
+
 								for b,bline in ipairs(currentundo) do
 									--MF_alert(" -- " .. bline[1] .. ", " .. tostring(bline[6]))
-									
+
 									if (bline[1] == "remove") and (bline[6] == uid) then
 										local x,y,dir,levelfile,levelname,vislevel,complete,visstyle,maplevel,colour,clearcolour,followed,back_init = bline[3],bline[4],bline[5],bline[8],bline[9],bline[10],bline[11],bline[12],bline[13],bline[14],bline[15],bline[16],bline[17]
-										
+
 										local newname = bline[2]
-										
+
 										local newunitname = ""
 										local newunitid = 0
-										
+
 										local ux,uy = unit.values[XPOS],unit.values[YPOS]
-										
+
 										newunitname = unitreference[newname]
 										newunitid = MF_emptycreate(newunitname,ux,uy)
-										
+
 										local newunit = mmf.newObject(newunitid)
 										newunit.values[ONLINE] = 1
 										newunit.values[XPOS] = ux
@@ -310,37 +310,37 @@ function moveblock(onlystartblock_)
 										newunit.values[DIR] = dir
 										newunit.values[ID] = bline[6]
 										newunit.flags[9] = true
-										
+
 										newunit.strings[U_LEVELFILE] = levelfile
 										newunit.strings[U_LEVELNAME] = levelname
 										newunit.flags[MAPLEVEL] = maplevel
 										newunit.values[VISUALLEVEL] = vislevel
 										newunit.values[VISUALSTYLE] = visstyle
 										newunit.values[COMPLETED] = complete
-										
+
 										newunit.strings[COLOUR] = colour
 										newunit.strings[CLEARCOLOUR] = clearcolour
-										
+
 										if (newunit.className == "level") then
 											MF_setcolourfromstring(newunitid,colour)
 										end
-										
+
 										addunit(newunitid,true)
 										addunitmap(newunitid,x,y,newunit.strings[UNITNAME])
 										dynamic(unitid)
-										
+
 										newunit.followed = followed
 										newunit.back_init = back_init
-										
+
 										if (newunit.strings[UNITTYPE] == "text") or isglyph(newunit) then
 											updatecode = 1
 										end
-										
+
 										local undowordunits = currentundo.wordunits
 										local undowordrelatedunits = currentundo.wordrelatedunits
 										local undosymbolunits = currentundo.wordunits
 										local undowordrelatedunits = currentundo.wordrelatedunits
-										
+
 										if (#undowordunits > 0) then
 											for a,b in ipairs(undowordunits) do
 												if (b == bline[6]) then
@@ -348,7 +348,7 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										if (#undosymbolunits > 0) then
 											for a,b in ipairs(undosymbolunits) do
 												if (b == bline[6]) then
@@ -356,7 +356,7 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										if (#undowordrelatedunits > 0) then
 											for a,b in ipairs(undowordrelatedunits) do
 												if (b == bline[6]) then
@@ -364,7 +364,7 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										if (#undowordrelatedunits > 0) then
 											for a,b in ipairs(undowordrelatedunits) do
 												if (b == bline[6]) then
@@ -372,11 +372,11 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										-- EDIT: ECHO once more
 										local undoechounits = currentundo.echounits
 										local undoechorelatedunits = currentundo.echorelatedunits
-										
+
 										if (#undoechounits > 0) then
 											for a,b in ipairs(undoechounits) do
 												if (b == bline[6]) then
@@ -384,7 +384,7 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										if (#undoechorelatedunits > 0) then
 											for a,b in ipairs(undoechorelatedunits) do
 												if (b == bline[6]) then
@@ -392,18 +392,18 @@ function moveblock(onlystartblock_)
 												end
 											end
 										end
-										
+
 										table.insert(delname, {newunit.strings[UNITNAME], bline[6], newunit.values[XPOS], newunit.values[YPOS], newunit.values[DIR]})
 									end
 								end
-								
+
 								addundo({"remove",unit.strings[UNITNAME],unit.values[XPOS],unit.values[YPOS],unit.values[DIR],unit.values[ID],unit.values[ID],unit.strings[U_LEVELFILE],unit.strings[U_LEVELNAME],unit.values[VISUALLEVEL],unit.values[COMPLETED],unit.values[VISUALSTYLE],unit.flags[MAPLEVEL],unit.strings[COLOUR],unit.strings[CLEARCOLOUR],unit.followed,unit.back_init,unit.originalname,unit.strings[UNITSIGNTEXT],false,unitid,unit.karma})
-								
+
 								for a,b in ipairs(delname) do
 									MF_alert("added undo for " .. b[1] .. " with ID " .. tostring(b[2]))
 									addundo({"create",b[1],b[2],b[2],"back",b[3],b[4],b[5]})
 								end
-								
+
 								delunit(unitid)
 								dynamic(unitid)
 								MF_specialremove(unitid,2)
@@ -413,37 +413,37 @@ function moveblock(onlystartblock_)
 				end
 			end
 		end
-		
+
 		doupdate()
-		
+
 		for i,unitid in ipairs(istele) do
 			if (isgone(unitid) == false) then
 				local unit = mmf.newObject(unitid)
 				local name = getname(unit)
 				local x,y = unit.values[XPOS],unit.values[YPOS]
-			
+
 				local targets = findallhere(x,y)
 				local telethis = false
 				local telethisx,telethisy = 0,0
-				
+
 				if (#targets > 0) then
 					for i,v in ipairs(targets) do
 						local vunit = mmf.newObject(v)
 						local thistype = vunit.strings[UNITTYPE]
 						local vname = getname(vunit)
-						
+
 						local targetvalid = isgone(v)
 						local targetstill = hasfeature(vname,"is","still",v,x,y)
 						-- Luultavasti ei väliä onko kohde tuhoutumassa?
-						
+
 						if (targetstill == nil) and floating(v,unitid,x,y) and (vunit.flags[DEAD] == false) then
 							local targetname = getname(vunit)
 							if (objectdata[v] == nil) then
 								objectdata[v] = {}
 							end
-							
+
 							local odata = objectdata[v]
-							
+
 							if (odata.tele == nil) then
 								if ((targetname ~= name) or ((metatext_fixquirks and
 										(getname(vunit,"text") == "text" and getname(unit,"text") == "text" and checkiftextrule(name,"is","tele",unitid)))
@@ -451,15 +451,15 @@ function moveblock(onlystartblock_)
 										or (getmetalevel(targetname) == getmetalevel(name) and checkiftextrule(name,"is","tele",nil,"meta"..getmetalevel(name)))))
 										and (v ~= unitid) then
 									local teles = istele
-									
+
 									if (#teles > 1) then
 										local teletargets = {}
 										local targettele = 0
-										
+
 										for a,b in ipairs(teles) do
 											local tele = mmf.newObject(b)
 											local telename = getname(tele)
-											
+
 											if (b ~= unitid) and (telename == name
 													or (metatext_fixquirks and getname(tele,"text") == "text" and getname(unit,"text") == "text" and checkiftextrule(name,"is","tele",unitid,true))
 													or (getmetalevel(telename) == getmetalevel(name) and checkiftextrule(name,"is","tele",unitid,true,"meta"..getmetalevel(name)))
@@ -467,28 +467,28 @@ function moveblock(onlystartblock_)
 												table.insert(teletargets, b)
 											end
 										end
-										
+
 										if (#teletargets > 0) then
 											local randomtarget = fixedrandom(1, #teletargets)
 											targettele = teletargets[randomtarget]
 											local limit = 0
-											
+
 											while (targettele == unitid) and (limit < 10) do
 												randomtarget = fixedrandom(1, #teletargets)
 												targettele = teletargets[randomtarget]
 												limit = limit + 1
 											end
-											
+
 											odata.tele = 1
-											
+
 											local tele = mmf.newObject(targettele)
 											local tx,ty = tele.values[XPOS],tele.values[YPOS]
 											local vx,vy = vunit.values[XPOS],vunit.values[YPOS]
-										
+
 											update(v,tx,ty)
-											
+
 											local pmult,sound = checkeffecthistory("tele")
-											
+
 											MF_particles("glow",vx,vy,5 * pmult,1,4,1,1)
 											MF_particles("glow",tx,ty,5 * pmult,1,4,1,1)
 											setsoundname("turn",6,sound)
@@ -501,47 +501,48 @@ function moveblock(onlystartblock_)
 				end
 			end
 		end
-	end
-	
-	if enable_directional_shift then
-		--@Turning Text(shift)
-		do_directional_shift_moveblock()
-	else
-		for a,unitid in ipairs(isshift) do
-			if (unitid ~= 2) and (unitid ~= 1) then
-				local unit = mmf.newObject(unitid)
-				local x,y,dir = unit.values[XPOS],unit.values[YPOS],unit.values[DIR]
-				
-				local things = findallhere(x,y,unitid)
-				
-				if (#things > 0) and (isgone(unitid) == false) then
-					for e,f in ipairs(things) do
-						if floating(unitid,f,x,y) and (issleep(unitid,x,y) == false) then
-							local newunit = mmf.newObject(f)
-							local name = newunit.strings[UNITNAME]
-							
-							if (featureindex["reverse"] ~= nil) then
-								local turndir = unit.values[DIR]
-								turndir = reversecheck(newunit.fixed,unit.values[DIR],x,y)
-							end
-							
-							if (newunit.flags[DEAD] == false) then
-								addundo({"update",name,x,y,newunit.values[DIR],x,y,unit.values[DIR],newunit.values[ID]})
-								newunit.values[DIR] = unit.values[DIR]
-								
-								--@ Turning text --
-								if is_turning_text(newunit.strings[NAME]) then
-									updatecode = 1
+
+
+		if enable_directional_shift then
+			--@Turning Text(shift)
+			do_directional_shift_moveblock()
+		else
+			for a,unitid in ipairs(isshift) do
+				if (unitid ~= 2) and (unitid ~= 1) then
+					local unit = mmf.newObject(unitid)
+					local x,y,dir = unit.values[XPOS],unit.values[YPOS],unit.values[DIR]
+
+					local things = findallhere(x,y,unitid)
+
+					if (#things > 0) and (isgone(unitid) == false) then
+						for e,f in ipairs(things) do
+							if floating(unitid,f,x,y) and (issleep(unitid,x,y) == false) then
+								local newunit = mmf.newObject(f)
+								local name = newunit.strings[UNITNAME]
+
+								if (featureindex["reverse"] ~= nil) then
+									local turndir = unit.values[DIR]
+									turndir = reversecheck(newunit.fixed,unit.values[DIR],x,y)
 								end
-								--@ Turning text --
+
+								if (newunit.flags[DEAD] == false) then
+									addundo({"update",name,x,y,newunit.values[DIR],x,y,unit.values[DIR],newunit.values[ID]})
+									newunit.values[DIR] = unit.values[DIR]
+
+									--@ Turning text --
+									if is_turning_text(newunit.strings[NAME]) then
+										updatecode = 1
+									end
+									--@ Turning text --
+								end
 							end
 						end
 					end
 				end
 			end
+
+			doupdate()
 		end
-		
-		doupdate()
 	end
 end
 
